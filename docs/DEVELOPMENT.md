@@ -143,6 +143,18 @@ UPR loads but can't randomize (a ROM hack or release whose data isn't where UPR 
 `reason: 'randoCrash'` and the wizard turns the randomizer off with that reason; a build that fails anyway answers
 `randoFailed` with only the Java exception's class name (`randomizerError`), the bridge's output stays in the server log.
 
+**TM compatibility follows the TM moves** (`@tmsFollowMoves`, #81 – souldew's own option, not UPR's): UPR keeps a random
+TM's compatibility tied to its slot. With the option on, `SoulLinkBridge` loads the game through its handler subclass
+(Gen 1–3 and 6–7 `FollowGenN`, Gen 4/5 the `SafeGen4/5RomHandler`; without it the load is unchanged), `TmFollow.snapshot`
+reads every Pokémon's original TM/HM, tutor and level-up moves (with those of its pre-evolutions) before UPR runs, and
+right after UPR's `randomizeTMMoves` every TM whose move changed goes to the Pokémon that could learn the new move – a
+move nobody could learn to the Pokémon of its type, and with none of those the slot keeps its list. HMs and unchanged TMs
+stay; UPR's own compatibility options run afterwards (the switch is only offered with "Unchanged"). The spoiler log gets
+a "TM Compatibility Follows The TM Moves" section. A run with it travels as run pack `@4` (2.8.2 would build without it);
+`SoulLinkBridge tmcompat <case.json>` runs the computation on test data (`test/tmfollow.test.mjs`). Gen 4's alternate
+forms (Rotom, Giratina, Shaymin, Deoxys, Wormadam) are a UPR limit for every compatibility change: its Gen 4 handler
+writes their compatibility to the personal-data file of their number, not their own file.
+
 **Randomizing 3DS games** uses the same bundled UPR ZX 4.6.1 jar and `SoulLinkBridge` as Gen 1–5 – UPR's own
 Gen6/Gen7RomHandler (`server/lib/ctrrando.mjs`, the 3DS branch of `server/lib/build.mjs`). Input: a decrypted `.3ds`/
 `.cci`/`.cxi`/`.cia` (UPR reads the game's NCCH; an encrypted one ends with `@@CODE "encrypted"` → `ctrEncrypted` –
@@ -154,7 +166,7 @@ out of the app (Gen 1–5 runs get `<cache>/upr-work/<id>` the same way – two 
 build, no longer take each other's unpacked files). UPR writes the `.cxi` with
 `RandomAccessFile("rw")`, which doesn't truncate, so the build always deletes the target first (it may be a hard link
 to the library's game). Rebuild the bridge after changing it:
-`javac --release 8 -cp tools/upr/PokeRandoZX.jar:tools/upr-bridge -d tools/upr-bridge tools/upr-bridge/SoulLinkBridge.java tools/upr-bridge/com/dabomstew/pkrandom/SysConstants.java`.
+`javac --release 8 -cp tools/upr/PokeRandoZX.jar:tools/upr-bridge -d tools/upr-bridge tools/upr-bridge/SoulLinkBridge.java tools/upr-bridge/TmFollow.java tools/upr-bridge/com/dabomstew/pkrandom/SysConstants.java`.
 Determinism: Sun built byte-identical with Temurin 17, OpenJDK 21 and 27 ("Nuzlocke hard mode" and "Chaos"); the Gen 6/7
 handlers' only enum-keyed map iteration is the weakness-berry table behind `Effectiveness.against`, already fixed.
 Game updates aren't loaded (UPR could only write them as LayeredFS).

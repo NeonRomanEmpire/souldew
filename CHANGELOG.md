@@ -2,6 +2,15 @@
 
 `npm run release` takes the release notes from the section of the version being released.
 
+## 2.8.3
+
+- **Randomizer: TM compatibility can follow the new TM moves** (#81 – thanks to BigPhitty for the request). With random
+  TM moves, a TM kept the Pokémon list of the move it used to teach – the Seismic Toss TM that now teaches Muddy Water
+  still worked for the Seismic Toss users. The new switch “TM compatibility follows the new TM moves” (Advanced settings
+  › TMs & HMs, off by default) gives such a TM to the Pokémon that could learn its new move in the original game – by TM,
+  tutor or level-up, also as an earlier evolution. A move no Pokémon could learn goes to the Pokémon of its type; HMs and
+  TMs that kept their move stay as they are. Everyone in a SoulLink needs souldew 2.8.3 to join a run that uses it.
+
 ## 2.8.2
 
 - **Every shortcut can be changed – and any key can be a game button** (thanks to a player on Discord). Keys like R
