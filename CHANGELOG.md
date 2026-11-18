@@ -48,6 +48,13 @@
   instead of starting the old version without a word. Randomized runs start without the update, because the randomizer
   builds the game from version 1.0. Live tracking knows the team's place in version 1.0 and in the latest update of
   every 3DS Pokémon game; with an older update the play view says so if the team doesn't show up.
+- **The randomizer says which file it got stuck on** (thanks to a player on Discord). When building a run stopped at a
+  file – the disk ran full, souldew wasn't allowed to use a folder, or the game file couldn't be read to the end – you
+  only saw “Randomizer error: RandomizerIOException” and a hint about ROM hacks. Now the message names the system's own
+  reason (“No space left on device”, “Permission denied”, “Input/output error” …), which file it was – the game file, the
+  new game in the run folder or the randomizer's working files – and what helps: free up space, allow souldew access to
+  the folder, or copy the game from an external drive, a network folder or iCloud Drive onto the computer. The
+  diagnostics (Help › Save diagnostics) now keep the cause behind the error, which file, and how much space was free.
 
 ## 2.8.2
 
