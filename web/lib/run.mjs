@@ -407,13 +407,16 @@ export function settleLives(doc, manifest) {
 }
 
 /**
- * `slot` used a cheat (today: `added` Rare Candies). Everyone in the run sees it in the log – that is the deal for
- * allowing cheats at all. Refused (false) while the run's rules don't allow cheats.
+ * `slot` used a cheat: `added` of its item went into the bag (`cheat`: 'rareCandy' or 'maxRepel' – shared/live/cheats.mjs
+ * CHEATS). Everyone in the run sees it in the log, naming what was added – that is the deal for allowing cheats at all.
+ * Refused (false) while the run's rules don't allow cheats, and for a cheat it doesn't know.
  */
-export function logCheat(doc, manifest, slot, { added }) {
+export function logCheat(doc, manifest, slot, { added, cheat = 'rareCandy' }) {
   if (!rules(doc, manifest).cheats) return false;
-  const what = msg('cheat.rareCandies', '{n} Rare Candy|{n} Rare Candies', { n: added, count: added });
-  feedMsg(doc, manifest, { type: 'cheat', slot, cheat: 'rareCandy', count: added, msg: slotsOf(manifest).length === 1
+  const what = cheat === 'rareCandy' ? msg('cheat.rareCandies', '{n} Rare Candy|{n} Rare Candies', { n: added, count: added })
+    : cheat === 'maxRepel' ? msg('cheat.maxRepels', '{n} Max Repel|{n} Max Repels', { n: added, count: added }) : null;
+  if (!what) return false;
+  feedMsg(doc, manifest, { type: 'cheat', slot, cheat, count: added, msg: slotsOf(manifest).length === 1
     ? msg('feed.cheatSolo', 'Cheat used: {what}', { what })
     : msg('feed.cheat', 'used a cheat: {what}', { what }) });
   return true;

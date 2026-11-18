@@ -39,7 +39,7 @@ const ruleDefs = () => [
   { key: 'typeClause', kind: 'choice', section: 'clauses', label: t('rules.type', 'Type rule'), hint: t('rules.typeHint', 'Primary types may not repeat in the team.'),
     options: [['off', t('rules.off', 'Off')], ['party', t('nzr.typeParty', 'In the team')]] },
   { key: 'nicknames', kind: 'check', section: 'clauses', label: t('nzr.nicknames', 'Nickname every catch'), hint: t('nz.nicknamesHint', 'A gentle reminder while a team member still has its species name.') },
-  { key: 'cheats', kind: 'check', section: 'clauses', label: t('nzr.cheats', 'Allow cheats (Rare Candies)'), hint: t('nz.cheatsHint', 'From the play screen, to level up to the cap without grinding. Every use is written to the log.') },
+  { key: 'cheats', kind: 'check', section: 'clauses', label: t('nzr.cheats', 'Allow cheats (Rare Candies, Max Repels)'), hint: t('nz.cheatsHint', 'From the play screen: Rare Candies to level up to the cap without grinding, Max Repels to keep wild Pokémon away. Every use is written to the log.') },
   { key: 'levelCaps', kind: 'choice', section: 'hardcore', label: t('nzr.caps', 'Level caps'), hint: t('nz.capsHint', 'The next boss’s ace level. Strict: going over is a rule break, not a hint.'),
     options: [[false, t('rules.off', 'Off')], ['warn', t('nzr.capsWarn', 'Warn')], ['strict', t('nzr.capsStrict', 'Strict')]] },
   { key: 'noBattleItems', kind: 'check', section: 'hardcore', honour: true, label: t('nzr.noItems', 'No items in battle'), hint: t('nz.noItemsHint', 'Poké Balls and held items are fine.') },
@@ -263,7 +263,7 @@ export function SoulLinkRules({ value: r, onChange, players: n = 2, variant = 'b
       variant === 'wizard' ? (n > 2 ? t('rules.failHintGroup', 'Fled or knocked out: the others’ Pokémon from that area may not be used either.') : t('rules.failHint', 'Fled or knocked out: your partner’s Pokémon from that area may not be used either.')) : null),
     check('shinyClause', t('rules.shiny', 'Shiny clause: shinies may always be caught and stay unlinked')),
     check('levelCaps', t('rules.caps', 'Check level caps'), variant === 'wizard' ? t('rules.capsHint', 'Warns when a Pokémon is above the next boss’s ace level.') : null),
-    check('cheats', t('rules.cheats', 'Allow cheats (Rare Candies)'), n > 2
+    check('cheats', t('rules.cheats', 'Allow cheats (Rare Candies, Max Repels)'), n > 2
       ? t('rules.cheatsHintGroup', 'From the play screen. Every use shows up in the log for all of you.')
       : t('rules.cheatsHint', 'From the play screen. Every use shows up in the log for both of you.')),
   ];
@@ -332,7 +332,7 @@ export function RulesSummary({ rules: r, players: n = 2 }) {
     [t('nzr.shiny', 'Shiny clause'), on(r.shinyClause)],
     [t('nzr.gifts', 'Gifts & eggs'), pick(giftOptions(), r.gifts === 'free' ? 'free' : 'area')],
     [t('nzr.caps', 'Level caps'), on(r.levelCaps)],
-    [t('rules.sumCheats', 'Cheats (Rare Candies)'), r.cheats ? t('rules.sumAllowed', 'Allowed') : t('rules.off', 'Off')],
+    [t('rules.sumCheats', 'Cheats (Rare Candies, Max Repels)'), r.cheats ? t('rules.sumAllowed', 'Allowed') : t('rules.off', 'Off')],
     [t('lives.title', 'Lives'), lives],
     [t('rules.sumTypeHelp', 'Type matchup help'), on(r.typeHelp !== false)],
   ];

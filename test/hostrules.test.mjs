@@ -174,7 +174,7 @@ test('the join page shows the run’s rules before joining', () => {
   assert.ok(join.slice(at).includes("<${RulesSummary} rules=${rulesWithDefaults(pack.rules, 'soullink')} players=${slots.length} />"));
   const shown = text(UI.RulesSummary({ rules: rulesWithDefaults(MINE, 'soullink'), players: 2 }));
   for (const s of ['Type rule', 'Per player', 'Dupes clause', 'For both · fled ones count too', 'Missed encounter costs the pair', 'Shiny clause',
-    'Gifts & eggs', 'Free extra', 'Level caps', 'Cheats (Rare Candies)', 'Allowed', 'Lives', '3 per player', 'Type matchup help']) assert.ok(shown.includes(s), s);
+    'Gifts & eggs', 'Free extra', 'Level caps', 'Cheats (Rare Candies, Max Repels)', 'Allowed', 'Lives', '3 per player', 'Type matchup help']) assert.ok(shown.includes(s), s);
   const plain = text(UI.RulesSummary({ rules: rulesWithDefaults({}, 'soullink'), players: 4 }));
   for (const s of ['Across all teams', 'Missed encounter costs the group', 'Count as the area']) assert.ok(plain.includes(s), s);
 });

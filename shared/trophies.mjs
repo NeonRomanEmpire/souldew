@@ -85,7 +85,8 @@ export function digestRun(manifest, entries, slot, opts = {}) {
   const firstOf = {}; // slot → area → { species, at }
   const evolved = [];
   const badgeTimes = [];
-  let cheats = 0;
+  let cheats = 0; // Rare Candies used (Candy Crush)
+  let cheatUses = 0; // any cheat at all – Rare Candies, Max Repels … (Honest Work)
   for (const [k, f] of Object.entries(doc)) {
     if (!k.startsWith('feed:') || !f || typeof f !== 'object') continue;
     const at = num(f.at);
@@ -102,7 +103,11 @@ export function digestRun(manifest, entries, slot, opts = {}) {
     } else if (f.type === 'badge') {
       const n = Number(f.msg?.vars?.n);
       if (Number.isInteger(n) && n >= 1 && n <= 16) badgeTimes.push({ n, at });
-    } else if (f.type === 'cheat' && f.cheat === 'rareCandy') cheats += Math.max(0, Number(f.count) || 0);
+    } else if (f.type === 'cheat' && f.cheat) {
+      // (a rule change is logged as type 'cheat' too, without `cheat`)
+      cheatUses++;
+      if (f.cheat === 'rareCandy') cheats += Math.max(0, Number(f.count) || 0);
+    }
   }
   const firstSpecies = firstOf[me] || {};
   // one evolution per step of a Pokémon: a reloaded savestate turns it back (Charmeleon → Charmander) and evolves it
@@ -188,7 +193,7 @@ export function digestRun(manifest, entries, slot, opts = {}) {
       // SoulLink's default type clause is 'global', a solo Nuzlocke's 'off' (shared/rules.mjs)
       typeClause: str(rules.typeClause, 10) || (mode === 'soullink' ? 'global' : 'off') },
     capBreaks: Object.keys(doc).filter((k) => k.startsWith(`capbreak:${me}:`)).length,
-    badges, badgeAt, bosses, catches, missed, partners, deaths, evolutions, cheats, lives,
+    badges, badgeAt, bosses, catches, missed, partners, deaths, evolutions, cheats, cheatUses, lives,
   };
 }
 
@@ -405,7 +410,7 @@ export const ACHIEVEMENTS = [
   { id: 'byTheBook', cat: 'skill', rarity: 'epic', check: (c) => flag(firstBy(c.digests.filter((d) => won(d) && d.mode === 'nuzlocke' && d.rules.levelCaps && d.capBreaks === 0).map((d) => d.status), () => true)) },
   { id: 'fullTeamWin', cat: 'skill', rarity: 'uncommon', check: (c) => flag(firstBy(c.digests.filter((d) => won(d) && (d.lives[d.me]?.party || []).length >= 6).map((d) => d.status), () => true)) },
   { id: 'phoenix', cat: 'skill', rarity: 'epic', check: (c) => flag(firstBy(c.digests.filter((d) => won(d) && d.deaths.length >= 10).map((d) => d.status), () => true)) },
-  { id: 'noCheatWin', cat: 'skill', rarity: 'uncommon', check: (c) => flag(firstBy(c.digests.filter((d) => won(d) && d.cheats === 0).map((d) => d.status), () => true)) },
+  { id: 'noCheatWin', cat: 'skill', rarity: 'uncommon', check: (c) => flag(firstBy(c.digests.filter((d) => won(d) && !d.cheats && !d.cheatUses).map((d) => d.status), () => true)) },
 
   // ---- SoulLink ------------------------------------------------------------
   { id: 'firstLink', cat: 'soullink', rarity: 'common', check: (c) => { const r = c.digests.filter((d) => d.mode === 'soullink'); return count(r.length, r.map((d) => d.createdAt), 1); } },
