@@ -474,9 +474,10 @@ export function expandedEntry(entry, maps3 = null, items = null) {
   const out = { ...entry, scan3: true, party3At: maps3?.party3 || null, flags3: maps3?.flags3 || null };
   // a build that kept the base game's save data: the retail species and items (a decomp hack with moved RAM, `moved`),
   // or an Emerald build whose own item table still numbers Poké Ball 4 and Rare Candy 68 (Modern Emerald – Run & Bun and
-  // pokeemerald-expansion renumber them, Complete FireRed Upgrade moved the bag and packs the PC). Its bag and PC boxes
-  // sit where the base game keeps them in its save blocks – reached through the save block pointers the place reader
-  // found (cheats.mjs, readBoxesGen3). `items3Max`: the highest item number the game knows (bag check).
+  // pokeemerald-expansion renumber them, Complete FireRed Upgrade moved the bag and packs the PC). Its bag sits where
+  // the base game keeps it in its save blocks – reached through the save block pointers the place reader found
+  // (cheats.mjs). `items3Max`: the highest item number the game knows (bag check). (The PC boxes don't depend on it:
+  // every expanded engine's are read where they check out – readBoxesGen3.)
   const name = (i) => String(items?.[i] || '').toUpperCase().replace('É', 'E');
   if (maps3?.moved || (/^emerald_/.test(String(entry.id)) && name(4) === 'POKE BALL' && name(68) === 'RARE CANDY')) {
     out.retail3 = true;
@@ -587,9 +588,14 @@ function lentParty3(entry, read, T, party) {
  * keep it at a fixed place, Emerald and FireRed/LeafGreen behind gPokemonStoragePtr, right after the two save block
  * pointers (pret .sym files; the German, French, Italian and Spanish FireRed/LeafGreen: 0x03004F60, pokebot-gen3's
  * language patches). Without it a catch the game sent to the PC (full party) wasn't seen until it joined the team.
- * Only the retail engines and builds that kept their save data (expandedEntry `retail3`, every slot must read): an
- * expanded one may have moved, grown or packed the boxes. Read every 2.5 s at most (like Gen 4);
- * null when the block doesn't read as a PC – mostly failed checksums is a wrong place, not a PC full of Bad Eggs.
+ * An expanded engine (Run & Bun, Modern Emerald, Too Many Types …) is read the same way – behind the pointer after the
+ * save block pointers the place reader found – only where its PC checks out: the box count from the box names behind
+ * the boxes, and every slot must read (an engine that moved, grew or packed its boxes – Complete FireRed Upgrade – gets
+ * none). Whether the hack numbers its items the retail way (`retail3`, the bag and the cheats) doesn't matter here: Run
+ * & Bun renumbers them but keeps the PC where Emerald has it (measured in 1.07: gPokemonStoragePtr 0x03005DA4 right
+ * after gSaveBlock1Ptr/gSaveBlock2Ptr, 14 boxes "Box1" …) – without it a catch sent there with a full team wasn't seen
+ * (#77). Read every 2.5 s at most (like Gen 4), and after a failed read not again for as long; null when the block
+ * doesn't read as a PC – mostly failed checksums is a wrong place, not a PC full of Bad Eggs.
  */
 const GBA_STORAGE = { rs: { at: 0x020300a0 }, e: { ptr: 0x03005d94 }, frlg: { ptr: 0x03005010 } };
 /**
@@ -614,30 +620,36 @@ function boxCount3(read, at) {
   return null;
 }
 function readBoxesGen3(entry, read, T, state) {
-  // (a build that kept the retail save data – expandedEntry `retail3` – keeps gPokemonStoragePtr right after the save
-  // block pointers, as found by the place reader)
-  const kept = entry.scan3 && entry.retail3;
-  if ((entry.scan3 || T.expanded3) && !kept) return null;
+  // (an expanded engine – expandedEntry: gPokemonStoragePtr right after the save block pointers, as found by the place
+  // reader; checked strictly below)
+  const kept = !!entry.scan3;
+  if (T.expanded3 && !kept) return null;
   if (kept && !state.sb1PtrAddr) return null;
   const id = String(entry.id || '');
   const L = kept ? { ptr: state.sb1PtrAddr + 8 } : GBA_STORAGE[/^(ruby|sapphire)_(us|de)$/.test(id) ? 'rs' : /^emerald_/.test(id) ? 'e' : /^(firered|leafgreen)_/.test(id) ? 'frlg' : ''];
   if (!L) return null;
   const now = Date.now();
   if (state.box3 && now - state.box3At < 2500) return state.box3;
+  // (a hack whose PC doesn't check out is tried again only every 2.5 s, too – the read is 33 KB)
+  if (kept && now - (state.box3Miss || 0) < 2500) return null;
+  const miss = () => {
+    if (kept) state.box3Miss = now;
+    return null;
+  };
   let at = L.at;
   if (!at) {
     const p = read(entry.saveBlockPtrs?.sb2 && !kept ? hex(entry.saveBlockPtrs.sb2) + 4 : L.ptr, 4);
     at = p ? u32le(p, 0) : 0;
   }
-  if (!(at >= 0x02000000 && at < 0x02040000)) return null;
+  if (!(at >= 0x02000000 && at < 0x02040000)) return miss();
   const n = kept ? state.box3N || boxCount3(read, at) : 14;
-  if (!n) return null;
+  if (!n) return miss();
   if (kept) state.box3N = n;
   const slots = n * 30;
   const len = 4 + slots * 80;
-  if (!(at >= 0x02000000 && at + len <= 0x02040000)) return null;
+  if (!(at >= 0x02000000 && at + len <= 0x02040000)) return miss();
   const raw = read(at, len);
-  if (!raw || raw[0] >= n) return null; // currentBox
+  if (!raw || raw[0] >= n) return miss(); // currentBox
   const boxes = [];
   const buf = new Uint8Array(100); // parsePk3 reads a party struct: the box part, zeros for level / HP / stats
   let bad = 0;
@@ -650,7 +662,7 @@ function readBoxesGen3(entry, read, T, state) {
     const m = parsePk3(buf, T);
     // (a hack's PC: every slot must read, or the boxes aren't what they seem – a Pokémon missing from them would be
     // reported as released)
-    if (!m && kept) return null;
+    if (!m && kept) return miss();
     if (!m) continue;
     if (m.bad) {
       bad++;
@@ -658,7 +670,7 @@ function readBoxesGen3(entry, read, T, state) {
     }
     boxes.push({ ...m, status: 0, box: Math.floor(i / 30), slot: i % 30, level: null, hp: null, maxHp: null });
   }
-  if ((bad > 20 && boxes.length < bad) || (kept && bad)) return null;
+  if ((bad > 20 && boxes.length < bad) || (kept && bad)) return miss();
   state.box3 = boxes;
   state.box3At = now;
   return boxes;

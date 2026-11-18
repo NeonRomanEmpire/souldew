@@ -55,6 +55,12 @@
   new game in the run folder or the randomizer's working files – and what helps: free up space, allow souldew access to
   the folder, or copy the game from an external drive, a network folder or iCloud Drive onto the computer. The
   diagnostics (Help › Save diagnostics) now keep the cause behind the error, which file, and how much space was free.
+- **Run & Bun: catches sent to the PC are tracked** (#77 – thanks for the report). With a full team a new catch – like a
+  Pokémon fished in Littleroot Town's pond – goes straight to the PC, and in Run & Bun souldew only saw it once it joined
+  the team, so the place stayed “First encounter open”. souldew now reads Run & Bun's PC boxes live, as in Emerald: the
+  catch is filed under its place right away, souldew asks again after a wild Pokémon that got away while your team is
+  full, and the board shows how many Pokémon are in the box. Other ROM hacks on the same engine get it too wherever
+  their PC is where Emerald keeps it.
 
 ## 2.8.2
 

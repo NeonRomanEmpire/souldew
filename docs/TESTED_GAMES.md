@@ -391,8 +391,11 @@ German FireRed/LeafGreen (2.3.1, issue #16) – the memory table was right, two 
   layout. A PC that reads as completely empty counts as unknown. Gen 1/2's PC isn't read (Gold/Silver/Crystal keep the
   boxes in the cartridge RAM, Red/Blue/Yellow only the current box in WRAM).
 - Gen 3 PC boxes are read live in the retail games (FireRed/LeafGreen in English, German, French, Italian and
-  Spanish, English Emerald, English and German Ruby/Sapphire): a catch sent to the PC is filed right away. Not in the
-  expanded-engine hacks: there a catch sent to the PC (a full team) is filed once it joins the team.
+  Spanish, English Emerald, English and German Ruby/Sapphire): a catch sent to the PC is filed right away. Expanded-engine
+  hacks (2.8.3, #77): read behind the pointer after the save block pointers wherever the PC checks out there (box names
+  behind 14–24 boxes, every slot a valid Pokémon) – Modern Emerald and Run & Bun 1.07 (gPokemonStoragePtr 0x03005DA4,
+  14 boxes, measured in the game; it renumbers its items, which kept its PC unread before). Complete FireRed Upgrade
+  (Unbound, Radical Red) packs its PC: there a catch sent to the PC (a full team) is filed once it joins the team.
 - German Ruby/Sapphire: no badges are read (their RAM sits elsewhere than in the English games and no German ROM was at
   hand to check), so no level cap either.
 - The ROM's data is worked out in a background thread the first time a game is opened (a few seconds for a big ROM);
