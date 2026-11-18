@@ -274,7 +274,10 @@ export function feedList(doc, limit = 80) {
 
 export function setEncounter(doc, manifest, area, slot, data, { quiet, by } = {}) {
   const prev = encounter(doc, area, slot);
-  doc.set(`enc:${area}:${slot}`, data ? { ...prev, ...data, at: prev?.at || Date.now() } : null);
+  const next = data ? { ...prev, ...data, at: prev?.at || Date.now() } : null;
+  // (another Pokémon entered by hand doesn't keep the form of the one before it)
+  if (next && prev?.form && !('form' in data) && data.species !== prev.species) delete next.form;
+  doc.set(`enc:${area}:${slot}`, next);
   // Edits by hand leave a trace in the log – otherwise a removed or swapped catch can't be told apart from a
   // tracking error later (both look like "the area holds something else now").
   if (!quiet && prev && (!data || (data.species && prev.species && data.species !== prev.species))) {
@@ -1254,7 +1257,15 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
       }
       if (m.level && m.level !== k.enc.level) patch.level = m.level;
       if (m.nickname && m.nickname !== k.enc.nickname) patch.nickname = m.nickname;
-      if (Object.keys(patch).length) writes[`enc:${k.area}:${slot}`] = { ...k.enc, ...patch };
+      // the form it has outside of battle (an Alolan form, a Mega that kept its form after the catch – or lost it on a
+      // reset): only shown. A form a battle gives it (Mega Evolution, Zen Mode, Blade Forme, a School …) is the same
+      // Pokémon – the species and the key stay, so it is no new catch, no evolution and no missing one; while a battle
+      // runs the encounter keeps the form it had before
+      const formChanged = !battle && snap.source !== 'save' && (m.form || 0) !== (k.enc.form || 0);
+      if (Object.keys(patch).length || formChanged) {
+        const { form: _old, ...rest } = k.enc; // eslint-disable-line no-unused-vars
+        writes[`enc:${k.area}:${slot}`] = { ...(formChanged ? rest : k.enc), ...patch, ...(formChanged && m.form ? { form: m.form } : {}) };
+      }
       if (m.inParty && m.hp === 0 && m.maxHp > 0 && pairState(doc, k.area).state !== 'dead' && counts(m)) {
         if (autoDeath) autoDead(k.area, m);
         else if (!held?.has(m.key)) alerts.push({ type: 'fainted', area: k.area, mon: m });
@@ -1299,6 +1310,8 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
       const enc = {
         outcome: 'caught', species: m.species, nickname: m.nickname, level: m.level || m.metLevel, gender: m.gender, shiny: m.shiny,
         key: m.key, metLocation: m.metLocation ?? null, metLevel: m.metLevel ?? null, at: Date.now(), auto: true,
+        // (the species is the rules' – route, dupes, evolution line, pairs; the form is only shown: "Charizard (Mega Y)")
+        ...(m.form ? { form: m.form } : {}),
       };
       writes[`enc:${guess}:${slot}`] = enc;
       known.set(m.key, { area: guess, enc });

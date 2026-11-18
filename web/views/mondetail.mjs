@@ -4,7 +4,7 @@
 import { html } from '/vendor/htm-preact.mjs';
 import { useApp, Sprite, Types, Modal, copy } from '../lib/ui.mjs';
 import { t } from '../lib/i18n.mjs';
-import { speciesName, itemName, moveName, abilityName, natureName, typeLabel } from '../lib/data.mjs';
+import { speciesName, speciesFormName, itemName, moveName, abilityName, natureName, typeLabel } from '../lib/data.mjs';
 import { cleanSummary, hiddenPower, natureEffect, evTotal, showdownSet } from '/shared/monstats.mjs';
 import { shownLevel } from './party.mjs';
 
@@ -72,7 +72,7 @@ export function MonDetail({ mon, gen, slot, owner, caption, onClose }) {
   const { runData, toast } = useApp();
   if (!mon) return null;
   const name = mon.nick || mon.nickname || speciesName(mon.species);
-  const species = speciesName(mon.species);
+  const species = speciesFormName(mon.species, mon.form, gen);
   const lv = shownLevel(mon.level);
   const item = heldName(mon, gen);
   const moves = (mon.moves || []).map((id) => moveName(id)).filter(Boolean);

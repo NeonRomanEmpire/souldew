@@ -3,7 +3,7 @@ import { useApp, Sprite, Types, Modal, SpeciesPicker, Led, copy, download } from
 import { Icon } from '../lib/icons.mjs';
 import { t, ago } from '../lib/i18n.mjs';
 import { api } from '../lib/api.mjs';
-import { speciesName, gameById, hackById, gameTitle } from '../lib/data.mjs';
+import { speciesName, speciesFormName, gameById, hackById, gameTitle } from '../lib/data.mjs';
 import { play } from '../lib/sound.mjs';
 import {
   progression, pairState, setEncounter, markDead, revive, markExtraDead, party, live, counts, checks, feedList, feed, feedText, causeText, msg, areaName, joinNames,
@@ -495,7 +495,7 @@ function Inbox() {
             <option value="">${t('inbox.chooseArea', 'Choose area')} …</option>
             ${areas.map((a) => html`<option value=${a.key} disabled=${!!doc.get(`enc:${a.key}:${me}`)}>${a.name}</option>`)}
           </select>
-          <button class="btn small" disabled=${!sel} onClick=${() => { setEncounter(doc, manifest, sel, me, { outcome: 'caught', species: it.mon.species, nickname: it.mon.nickname, level: it.mon.level || it.mon.metLevel, metLevel: it.mon.metLevel ?? null, shiny: it.mon.shiny, key: it.mon.key }); dropItem(it.mon.key); }}>${t('inbox.assign', 'Assign')}</button>
+          <button class="btn small" disabled=${!sel} onClick=${() => { setEncounter(doc, manifest, sel, me, { outcome: 'caught', species: it.mon.species, nickname: it.mon.nickname, level: it.mon.level || it.mon.metLevel, metLevel: it.mon.metLevel ?? null, shiny: it.mon.shiny, key: it.mon.key, ...(it.mon.form ? { form: it.mon.form } : {}) }); dropItem(it.mon.key); }}>${t('inbox.assign', 'Assign')}</button>
           <button class="btn small ghost" onClick=${() => { doc.set(`${keep ? 'extra' : 'ign'}:${me}:${it.mon.key}`, { species: it.mon.species, nickname: it.mon.nickname || null, level: it.mon.level || null, shiny: !!it.mon.shiny, ...(keep ? { reason: keep } : {}), at: Date.now() }); dropItem(it.mon.key); }}>
             ${bonusShiny ? t('inbox.keepShiny', 'Keep as bonus shiny') : freeGift ? t('inbox.keepGift', 'Keep as free gift') : t('inbox.ignore', 'Ignore')}</button>
         </div>
@@ -516,10 +516,10 @@ function MonButton({ enc, slot, right, onClick, label }) {
   if (!enc) return html`<button class=${cls} style=${style} onClick=${onClick} ...${aria}><span class="faint small">${t('routes.add', '+ add encounter')}</span></button>`;
   if (enc.outcome === 'missed') return html`<button class=${cls} style=${style} onClick=${onClick} ...${aria}><span class="muted small">${t('routes.missed', 'missed')}${enc.species ? ` · ${speciesName(enc.species)}` : ''}</span></button>`;
   return html`<button class=${cls} style=${style} onClick=${onClick} ...${aria}>
-    <${Sprite} id=${enc.species} shiny=${enc.shiny} size=${40} gen=${runData.gen} />
+    <${Sprite} id=${enc.species} form=${enc.form} shiny=${enc.shiny} size=${40} gen=${runData.gen} />
     <span style="min-width:0"><b style="font-weight:500">${enc.nickname || speciesName(enc.species)}</b>
-      <span class="tiny faint" style="display:block">${speciesName(enc.species)}${enc.level ? ` · ${t('common.lv', 'Lv')}\u00a0${enc.level}` : ''}</span>
-      <${Types} types=${runData.types(enc.species, slot)} /></span>
+      <span class="tiny faint" style="display:block">${speciesFormName(enc.species, enc.form, runData.gen)}${enc.level ? ` · ${t('common.lv', 'Lv')}\u00a0${enc.level}` : ''}</span>
+      <${Types} types=${runData.types(enc.species, slot, enc.form || 0)} /></span>
   </button>`;
 }
 
@@ -997,7 +997,9 @@ function SpoilerTab() {
   if (!shown) return html`<div class="panel empty-state"><${Icon} name="help" size=${56} /><h2>${t('spoiler.title', 'What the randomizer rolled')}</h2>
     <p class="muted prose">${t('spoiler.text', 'Wild Pokémon per route and the starters. Once you look, you no longer play blind.')}</p>
     <button class="btn danger" onClick=${() => setShown(true)}>${t('spoiler.show', 'Show spoilers')}</button></div>`;
-  const tables = runData.encounterTables(slot).filter((tb) => !q || tb.area.toLowerCase().includes(q.toLowerCase()) || tb.sets.some((s) => s.slots.some(([id]) => speciesName(id).toLowerCase().includes(q.toLowerCase()))));
+  // (the randomizer numbers alternate forms its own way: runData.uprMon)
+  const up = (id) => runData.uprMon(id, slot);
+  const tables = runData.encounterTables(slot).filter((tb) => !q || tb.area.toLowerCase().includes(q.toLowerCase()) || tb.sets.some((s) => s.slots.some(([id]) => up(id).name.toLowerCase().includes(q.toLowerCase()))));
   return html`<div class="stack">
     <div class="row">${slots.length > 1 && html`<div class="seg">${slots.map((s) => html`<button class=${slot === s ? 'on' : ''} aria-pressed=${slot === s} onClick=${() => setSlot(s)}>${names[s].name}</button>`)}</div>`}
       <span class="spacer"></span><input type="search" value=${q} placeholder=${t('routes.search', 'Search route or Pokémon')} aria-label=${t('routes.search', 'Search route or Pokémon')} onInput=${(e) => setQ(e.target.value)} /></div>
@@ -1005,12 +1007,12 @@ function SpoilerTab() {
       ? t('spoiler.otherDeviceName', 'This game was built on {name}’s computer – no spoiler data here.', { name: names[slot]?.name || '' })
       : t('spoiler.otherDevice', 'This game was built on the other computer – no spoiler data here.')}</p>`}
     ${runData.romData[slot] && html`<section class="panel"><div class="panel-head"><h3>${t('spoiler.starters', 'Starters')}</h3></div>
-      <div class="row">${runData.starters(slot).map((id) => html`<div class="row" style="gap:6px"><${Sprite} id=${id} size=${56} gen=${runData.gen} /><div><b>${speciesName(id)}</b><br /><${Types} types=${runData.types(id, slot)} /></div></div>`)}</div></section>`}
+      <div class="row">${runData.starters(slot).map(up).map((m) => html`<div class="row" style="gap:6px"><${Sprite} id=${m.species} form=${m.form} size=${56} gen=${runData.gen} /><div><b>${m.name}</b><br /><${Types} types=${runData.types(m.species, slot, m.form)} /></div></div>`)}</div></section>`}
     <section class="panel"><table class="data"><tbody>
       ${tables.map((tb) => html`<tr><td class="spoiler-area"><b>${tb.area}</b></td><td>${tb.sets.map((s) => {
         const uniq = [...new Map(s.slots.map((x) => [x[0], x])).values()];
         return html`<div class="row spoiler-set"><span class="faint small spoiler-method">${s.method || '–'}</span>
-          ${uniq.map(([id]) => html`<span class="row" style="gap:2px"><${Sprite} id=${id} size=${30} gen=${runData.gen} /><span class="small">${speciesName(id)}</span></span>`)}</div>`;
+          ${uniq.map(([id]) => up(id)).map((m) => html`<span class="row" style="gap:2px"><${Sprite} id=${m.species} form=${m.form} size=${30} gen=${runData.gen} /><span class="small">${m.name}</span></span>`)}</div>`;
       })}</td></tr>`)}
     </tbody></table></section>
   </div>`;

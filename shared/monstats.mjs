@@ -146,8 +146,14 @@ const SD_FORMS = {
   555: ['', 'Zen'], 648: ['', 'Pirouette'], 641: ['', 'Therian'], 642: ['', 'Therian'], 645: ['', 'Therian'],
   646: ['', 'White', 'Black'], 647: ['', 'Resolute'], 678: ['', 'F'], 710: ['', 'Small', 'Large', 'Super'],
   711: ['', 'Small', 'Large', 'Super'], 720: ['', 'Unbound'], 741: ['', 'Pom-Pom', 'Pa\'u', 'Sensu'],
-  745: ['', 'Midnight', 'Dusk'], 800: ['', 'Dusk-Mane', 'Dawn-Wings'], 718: ['', '10%', '', '10%', 'Complete'],
+  745: ['', 'Midnight', 'Dusk'], 800: ['', 'Dusk-Mane', 'Dawn-Wings', 'Ultra'], 718: ['', '10%', '10%', '', 'Complete'],
   658: ['', 'Bond', 'Ash'], 670: ['', '', '', '', '', 'Eternal'],
+  // the forms a battle changes (a Pokémon read mid-battle)
+  681: ['', 'Blade'], 746: ['', 'School'], 778: ['', 'Busted', '', 'Busted'], 774: ['Meteor', 'Meteor', 'Meteor', 'Meteor', 'Meteor', 'Meteor', 'Meteor'],
+  // Mega Evolutions (form 1; Charizard and Mewtwo: X 1, Y 2) and Primal Reversion
+  ...Object.fromEntries([3, 9, 15, 18, 65, 80, 94, 115, 127, 130, 142, 181, 208, 212, 214, 229, 248, 254, 257, 260, 282, 302, 303, 306,
+    308, 310, 319, 323, 334, 354, 359, 362, 373, 376, 380, 381, 384, 428, 445, 448, 460, 475, 531, 719].map((id) => [id, ['', 'Mega']])),
+  6: ['', 'Mega-X', 'Mega-Y'], 150: ['', 'Mega-X', 'Mega-Y'], 382: ['', 'Primal'], 383: ['', 'Primal'],
   // Alolan forms (Sun/Moon, Ultra Sun/Ultra Moon: form 1)
   ...Object.fromEntries([19, 20, 26, 27, 28, 37, 38, 50, 51, 52, 53, 74, 75, 76, 88, 89, 103, 105].map((id) => [id, ['', 'Alola']])),
 };
@@ -168,7 +174,8 @@ export function showdownSet(mon, gen, N) {
   const raw = N.species(mon.species) || '';
   const base = sdSpecies(raw);
   if (!base) return '';
-  const suffix = gen >= 4 && mon.form ? SD_FORMS[mon.species]?.[mon.form] : '';
+  // (Minior's Meteor Forms are form 0–6 – its core the species' own name; Gen 3: an expanded engine's Megas)
+  const suffix = gen >= 3 && (mon.form || mon.species === 774) ? SD_FORMS[mon.species]?.[mon.form || 0] : '';
   const species = suffix ? `${base}-${suffix}` : base;
   const nick = String(mon.nick ?? mon.nickname ?? '').replace(/[()@\n\r]/g, '').trim().slice(0, 18);
   // (the species' own name as the game writes it – "BULBASAUR", "NIDORAN♀" – is no nickname)

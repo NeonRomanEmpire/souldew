@@ -129,6 +129,8 @@ export class LiveTables {
     t.idx3 = sp.map;
     t.fake3 = sp.unknown && Object.keys(sp.unknown).length ? sp.unknown : null;
     t.expanded3 = sp.engine === 'expanded';
+    // its Megas and Primal forms (romspecies.mjs gen3Forms): the game's species → the form of the species it maps to
+    t.forms3 = sp.forms && typeof sp.forms === 'object' ? sp.forms : null;
     // an expanded engine's own item names and move numbers (server/lib/romloc.mjs ownTables3: `items`, `moves`)
     t.items3 = t.expanded3 ? own?.items?.names || null : null;
     t.moves3 = t.expanded3 ? own?.moves?.map || null : null;
@@ -277,6 +279,9 @@ export function parsePk3(d, T) {
   const internal = T.expanded3 ? u16le(G, 0) & 0x7ff : u16le(G, 0);
   const species = T.idx3?.[internal] || (T.fake3?.[internal] ? FAKEMON + internal : 0);
   if (!species) return null;
+  // an expanded engine's alternate form is a species of its own there – here its species, with the form to show
+  // (a Mega Evolution in battle writes the Mega's number into the party: the same Pokémon, no new one)
+  const form = T.forms3?.[internal] | 0;
   const origins = u16le(M, 2);
   const ivs = u32le(M, 4);
   const shiny = isShiny(pid, otId, T);
@@ -284,7 +289,7 @@ export function parsePk3(d, T) {
   const moves = [u16le(A, 0), u16le(A, 2), u16le(A, 4), u16le(A, 6)];
   return {
     key: `g3-${pid.toString(16).padStart(8, '0')}-${otId.toString(16)}`,
-    pid, species, nickname: decodeText(d.subarray(8, 18), T.cs3, 0xff), item,
+    pid, species, ...(form > 0 && form < 32 ? { form } : {}), nickname: decodeText(d.subarray(8, 18), T.cs3, 0xff), item,
     // (an expanded engine that numbers its moves its own way: the National numbers, a move the app doesn't know left out)
     moves: (T.moves3 ? moves.map((m) => T.moves3[m] || 0) : moves).filter(Boolean),
     // the egg flag: bit 30 of the IV word in the retail games. Expanded engines moved the IVs (Run & Bun keeps them at
@@ -1522,7 +1527,7 @@ function battleGen3(entry, read, T, state = {}) {
     // (the status condition: gBattleMons' status1 where the battler was found, else the party struct's – the battle
     // writes it there with every change, BtlController_EmitSetMonData REQUEST_STATUS_BATTLE)
     const status = foe ? foe.status : e.status;
-    const enemy = { species: e.species, level: e.level, hp: foe ? foe.hp : e.hp, maxHp: e.maxHp, shiny: e.shiny, moves: e.moves, ...(foeTypes ? { types: foeTypes } : {}), ...(statusOk(status) ? { status } : {}) };
+    const enemy = { species: e.species, level: e.level, hp: foe ? foe.hp : e.hp, maxHp: e.maxHp, shiny: e.shiny, moves: e.moves, ...(e.form ? { form: e.form } : {}), ...(foeTypes ? { types: foeTypes } : {}), ...(statusOk(status) ? { status } : {}) };
     // wild or trainer: a wild Pokémon is created with the player's trainer ID (CreateWildMon → OT_ID_PLAYER_ID, the
     // same in pokeemerald-expansion), a trainer's with a random one (OT_ID_RANDOM_NO_SHINY) – the opponent's OT ID
     // is one of the team's (its own catches) only in a wild battle

@@ -13,7 +13,7 @@
 //              status (raw status byte or 'slp'|'psn'|'brn'|'frz'|'par'|'tox'|'fnt'), item, area? }
 import { html } from '/vendor/htm-preact.mjs';
 import { Sprite, HpBar, Types } from '../lib/ui.mjs';
-import { speciesName, itemName } from '../lib/data.mjs';
+import { speciesName, speciesFormName, itemName } from '../lib/data.mjs';
 import { t } from '../lib/i18n.mjs';
 
 const nameOf = (m) => m.nickname || m.nick || speciesName(m.species);
@@ -69,7 +69,8 @@ export function PartyPanel({ mon, gen = 4, lead, compact, accent, dead, types, c
   const st = statusOf(mon);
   const fainted = st === 'fnt' || dead;
   const name = nameOf(mon);
-  const species = speciesName(mon.species);
+  // (with the form it is in right now: "Charizard (Mega Y)")
+  const species = speciesFormName(mon.species, mon.form, gen);
   const showSpecies = species && name.toLowerCase() !== species.toLowerCase();
   const g = mon.gender === 'M' || mon.gender === 'F' ? mon.gender : null;
   const holds = !noItems && mon.item !== undefined && mon.item !== null && mon.item !== 0 && mon.item !== '';
