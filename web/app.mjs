@@ -7,7 +7,7 @@ import { SyncLink, PARTNER_TTL } from './lib/sync.mjs';
 import { setLang, guessLang, t, onLangChange } from './lib/i18n.mjs';
 import { applyTheme, applyStoredTheme } from './lib/theme.mjs';
 import { detectLayout, resolveHotkeys, accelerator } from './lib/controls.mjs';
-import { applySnapshot, snapshotFromSave, players as getPlayers, areaName, feedText, othersOf, slotsOf, runMode, checks, loadLocationTables, genOfRun, wipedSlot, failRun, lives as getLives, livesFor, settleLives } from './lib/run.mjs';
+import { applySnapshot, snapshotFromSave, players as getPlayers, areaName, feedText, othersOf, slotsOf, runMode, checks, loadLocationTables, genOfRun, wipedSlot, failRun, lives as getLives, livesFor, settleLives, revealHeld, startRules, HELD_PREFIX } from './lib/run.mjs';
 import { play } from './lib/sound.mjs';
 import { Ctx, Toasts, Led, Modal, openExternal } from './lib/ui.mjs';
 import { LINKS } from './lib/links.mjs';
@@ -554,28 +554,61 @@ function App() {
 
   // ---- snapshots (live RAM / save files / external bridge) ---------------------------
   // battle: what the live loop sees on the other side right now – a death in it gets its cause (opponent, level).
-  const applySnap = useCallback((snap, { notify = true, battle = null } = {}) => {
-    if (!runDoc) return null;
-    const doc = runDoc;
-    // An ended run stays as it ended: playing on (for fun, or after a wipe) records nothing anymore.
-    if (doc.get('run:status')) return null;
-    const res = applySnapshot(doc, manifest, genOfRun(manifest, runData), me, snap, { rd: runData, battle });
-    setInbox(res);
+  // After deaths were written (a snapshot, or held deaths revealed): a wiped team ends the run, and Discord hears of
+  // the catches and deaths.
+  const afterDeaths = (doc, { newCatches = [], deaths = [] }, notify) => {
     // the last of my Pokémon fell → the run is over (every player gets the big notice via the doc). A solo
     // Nuzlocke goes by its blackout rule instead (with the manifest, wipedSlot asks it; applySnapshot already
     // ended the run on a blackout or a deathless death – failRun then does nothing).
     if (wipedSlot(doc, [me], manifest)) failRun(doc, manifest, me, runMode(manifest) === 'nuzlocke' ? 'blackout' : undefined);
-    if (notify && res.newCatches.length) sfx('catch');
+    if (notify && newCatches.length) sfx('catch');
     // deaths: the doc subscription above shows the big alert (for both players)
     // The server posts to this computer's webhook for the run, if one is set (none → it does nothing).
-    if (notify && (res.newCatches.length || res.deaths.length)) {
+    if (notify && (newCatches.length || deaths.length)) {
       const n = getPlayers(doc, manifest)[me].name;
-      const lines = [...res.newCatches.map((a) => `🎯 **${n}** – ${areaName(doc, manifest, a)}: ${speciesName(doc.get(`enc:${a}:${me}`)?.species)}`),
-        ...res.deaths.map((a) => `💀 **${n}** – ${areaName(doc, manifest, a)}`)];
+      const lines = [...newCatches.map((a) => `🎯 **${n}** – ${areaName(doc, manifest, a)}: ${speciesName(doc.get(`enc:${a}:${me}`)?.species)}`),
+        ...deaths.map((a) => `💀 **${n}** – ${areaName(doc, manifest, a)}`)];
       api.post('/api/notify/discord', { runId: manifest.id, content: lines.join('\n') }).catch(() => {});
     }
+  };
+  // held: the Pokémon whose fall the game hasn't shown yet (the play view's DeathReveal – key → the HP still shown)
+  const applySnap = useCallback((snap, { notify = true, battle = null, held = null } = {}) => {
+    if (!runDoc) return null;
+    const doc = runDoc;
+    // An ended run stays as it ended: playing on (for fun, or after a wipe) records nothing anymore.
+    if (doc.get('run:status')) return null;
+    const res = applySnapshot(doc, manifest, genOfRun(manifest, runData), me, snap, { rd: runData, battle, held });
+    setInbox(res);
+    afterDeaths(doc, res, notify);
     return res;
   }, [runDoc, manifest, runData, me]);
+  // The play view between snapshots (a reset, the title screen, the game closed): the held deaths it no longer holds
+  // (`keep`: the ones it still does) are revealed now – recorded already, they never go away.
+  const revealDeaths = useCallback((keep = null) => {
+    if (!runDoc || !me || !Object.keys(runDoc.scan(`${HELD_PREFIX}${me}:`)).length) return null;
+    const res = revealHeld(runDoc, manifest, me, { keep });
+    afterDeaths(runDoc, res, true);
+    return res;
+  }, [runDoc, manifest, me]);
+  // The play view saw the first Poké Balls in this player's bag: the run's rules start for them (lib/run.mjs startRules).
+  const ballsSeen = useCallback((down = []) => !!runDoc && !!me && startRules(runDoc, manifest, me, 'bag', down), [runDoc, manifest, me]);
+  // Held deaths nobody holds any more: this player's from a session that ended without revealing them (the app was
+  // quit or crashed – the game's next reading reveals them sooner), a partner's whose app went away before it could
+  // (older than a couple of minutes; a play view holds one for seconds, a paused game a little longer) – revealed here,
+  // with the same log line the other app would write.
+  useEffect(() => {
+    if (!runDoc || !manifest) return undefined;
+    const sweep = () => {
+      for (const s of slotsOf(manifest)) {
+        if (!Object.keys(runDoc.scan(`${HELD_PREFIX}${s}:`)).length) continue;
+        const res = revealHeld(runDoc, manifest, s, { olderThan: s === me ? 300000 : 120000 });
+        if (s === me && res.deaths.length) afterDeaths(runDoc, res, true);
+      }
+    };
+    sweep();
+    const id = setInterval(sweep, 30000);
+    return () => clearInterval(id);
+  }, [runDoc, manifest?.id, me]);
 
   // One EventSource per run; handlers read the latest applySnap through a ref.
   const applySnapRef = useRef(applySnap);
@@ -675,7 +708,7 @@ function App() {
   const warnCount = runDoc ? checkCount + inbox.inbox.length + inbox.alerts.length : 0;
   const ctx = {
     status, reloadStatus, library, reloadLibrary, runId, setRunId, manifest, missingRun, reloadManifest, doc: runDoc, docVersion, runData, me, setMe,
-    navigate, route, link: linkRef.current, linkStatus, partnerOnline, onlineSlots, connect, disconnect, inbox, setInbox, applySnap, toast, liveInfo,
+    navigate, route, link: linkRef.current, linkStatus, partnerOnline, onlineSlots, connect, disconnect, inbox, setInbox, applySnap, revealDeaths, ballsSeen, toast, liveInfo,
     externalRun, setExternalRun,
     session, startSession, endSession, closeSession, offerRestart,
   };

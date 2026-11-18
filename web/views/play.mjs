@@ -8,9 +8,10 @@ import { t, ago } from '../lib/i18n.mjs';
 import { api } from '../lib/api.mjs';
 import { serverErrorText } from '../lib/errors.mjs';
 import { gameById, gameTitle, speciesName, hackById, itemName, moveName } from '../lib/data.mjs';
-import { players as getPlayers, live, othersOf, runMode, missedQuestion, openAreas, markMissed, locationChoices, areaForCatch, genOfRun, profileOf, rules as getRules, logCheat, dupeOf, areaForPlace, encounter } from '../lib/run.mjs';
+import { players as getPlayers, live, othersOf, runMode, missedQuestion, openAreas, markMissed, locationChoices, areaForCatch, genOfRun, profileOf, rules as getRules, logCheat, dupeOf, areaForPlace, encounter, beforeBalls } from '../lib/run.mjs';
 import { findEntry, readLiveParty, readLiveBattle, playerBattle, withBattleHp, confirmFaints, inBattleFlag, LiveTables, expandedEntry } from '/shared/live/parse.mjs';
-import { applyCheat, cheatsFor, cheatBlock, CHEATS } from '/shared/live/cheats.mjs';
+import { applyCheat, cheatsFor, cheatBlock, CHEATS, readBalls } from '/shared/live/cheats.mjs';
+import { DeathReveal, effectiveSpeed } from '../lib/reveal.mjs';
 import { MusicKeyTracker } from '/shared/live/location.mjs';
 import { probeGen67 } from '/shared/live/gen67.mjs';
 import { PlayHome } from './playhome.mjs';
@@ -275,7 +276,7 @@ const GEN = { gb: 1, gbc: 2, gba: 3, nds: 4 };
  * you open another section: `mode` "full" fills the Play page, "mini" floats in the corner.
  */
 export function GameSession({ session, mode }) {
-  const { manifest, doc, me, applySnap, toast, docVersion, onlineSlots, navigate, closeSession, link, status, runData } = useApp();
+  const { manifest, doc, me, applySnap, revealDeaths, ballsSeen, toast, docVersion, onlineSlots, navigate, closeSession, link, status, runData } = useApp();
   const target = session.target;
   // the module slides into the console while the game boots (Settings › animations; never with reduced motion)
   const [inserting, setInserting] = useState(() => mode === 'full' && status?.config?.bootAnimation !== false
@@ -418,6 +419,17 @@ export function GameSession({ session, mode }) {
   // The long-running loops below must always see the current applySnap (the doc may load later).
   const snapRef = useRef(applySnap);
   snapRef.current = applySnap;
+  // Deaths shown when the game shows them (lib/reveal.mjs): the live loop runs every reading through it – the team,
+  // the battle helper and the run see a Pokémon go down once the game has shown it; its death is recorded at once
+  // (applySnapshot `held`). revealRef: the run reveals the held deaths the play view no longer holds.
+  const revealer = useRef(null);
+  if (!revealer.current) revealer.current = new DeathReveal();
+  const revealRef = useRef(revealDeaths);
+  revealRef.current = revealDeaths;
+  // "Nothing counts before your first Poké Balls" (lib/run.mjs beforeBalls): the bag is looked at every few seconds
+  // until this player's rules have started
+  const ballsRef = useRef(null);
+  ballsRef.current = { waiting: target.kind === 'run' && !!doc && !!manifest && !!me && beforeBalls(doc, manifest, me), seen: ballsSeen };
   const emu = () => frame.current?.contentWindow?.__emu;
   const isRun = target.kind === 'run';
   const solo = isRun && runMode(manifest) === 'nuzlocke';
@@ -435,6 +447,11 @@ export function GameSession({ session, mode }) {
   }, [whereKey, isRun, doc, me]);
   const stateUrl = (slot) => `/api/saves/state?id=${encodeURIComponent(target.stateId)}&slot=${slot}`;
 
+  // a reset or a loaded state: the deaths held for the game to show are shown now
+  const revealNow = () => {
+    revealer.current.releaseAll();
+    revealRef.current?.(null);
+  };
   const armLoad = (p) => {
     pendingRef.current = p;
     setPendingLoad(p);
@@ -547,6 +564,7 @@ export function GameSession({ session, mode }) {
       // answers nothing – loaded
       Promise.resolve(emu().loadState(p.bytes)).catch(() => false).then((ok) => {
         if (ok === false) return flash(t('play.stateLoadFailed', 'Couldn’t load this state – the game goes on where it was'));
+        revealNow(); // (a death the game was showing is recorded – loading a state doesn't take it back)
         pickSlot(p.slot);
         flash(MANUAL_SLOTS.includes(p.slot) ? t('play.stateLoaded', 'State {n} loaded', { n: p.slot }) : t('states.loaded', '“{name}” loaded', { name: slotName(p.slot) }));
       });
@@ -987,6 +1005,7 @@ export function GameSession({ session, mode }) {
       let fcOwn = null; // the ROM data fc was made from
       const ctrNoTeam = { since: 0, told: false, found: false }; // 3DS: since when memory comes without a team (diagnostics)
       let seenKeys = null; // the Pokémon of the first team read – one that joins later is a catch
+      let lastBalls = 0; // when the bag was last looked at for Poké Balls
       setFeatures(null);
       const tick = () => {
         if (stopped) return;
@@ -1069,8 +1088,10 @@ export function GameSession({ session, mode }) {
               // (a Pokémon at 0 HP counts once two reads in a row say so, in a battle only one that has been out in it –
               // the tracker files deaths from this party)
               const party = confirmFaints(withBattleHp(res.party, fight, state), state, fight);
-              setMine(party);
-              setBattle(fight);
+              // what the player has seen of it: a Pokémon whose fall the game is still showing keeps its HP for now
+              const shown = revealer.current.see(party, { speed: effectiveSpeed(e.speed?.() ?? speedRef.current, { paused: !!e.paused?.(), reach: reachRef.current }), gen: entry.gen, battle: fight });
+              setMine(shown.party);
+              setBattle(shown.battle);
               // (every poll – a stray reading must not decide whether the battle was a wild one)
               const ended = isRun ? missedTr.current.see(fight, Date.now(), hereNow) : null;
               if (ended) wildEndRef.current?.(ended);
@@ -1102,7 +1123,19 @@ export function GameSession({ session, mode }) {
               // the battle goes along: a Pokémon that falls in it gets the opponent as its cause of death; the level caps
               // read from the game go along once its data is known (web/lib/run.mjs files them for the run)
               const romCaps = romDataReady() ? (own?.caps ? { caps: own.caps.caps, leaders: own.caps.leaders, final: own.caps.final } : null) : undefined;
-              if (isRun) snapRef.current?.({ source: 'live', party, boxes: res.boxes || null, game: entry.id, here: hereNow, ...(res.badges !== undefined ? { badges: res.badges } : {}), ...(romCaps !== undefined ? { romCaps } : {}) }, { battle: fight });
+              if (isRun) snapRef.current?.({ source: 'live', party, boxes: res.boxes || null, game: entry.id, here: hereNow, ...(res.badges !== undefined ? { badges: res.badges } : {}), ...(romCaps !== undefined ? { romCaps } : {}) }, { battle: fight, held: shown.held });
+              // (an ended run takes no snapshots: what is held is still revealed as it comes due)
+              if (isRun) revealRef.current?.(shown.held);
+              // the first Poké Balls in the bag start the run's rules for this player (outside battles: the bag is
+              // the game's own then; every 3 s – a few bytes, or a bag block on the 3DS)
+              const bw = ballsRef.current;
+              if (isRun && bw?.waiting && !fight && Date.now() - lastBalls > 3000) {
+                lastBalls = Date.now();
+                if (readBalls(ent, e.read, state) > 0) bw.seen(party.filter((m) => m?.key && m.maxHp > 0 && m.hp === 0).map((m) => m.key));
+              }
+            } else if (isRun) {
+              // no team in memory (a menu, the title screen after a reset): the held deaths still come when their time is up
+              revealRef.current?.(revealer.current.idle({ speed: effectiveSpeed(e.speed?.() ?? speedRef.current, { paused: !!e.paused?.(), reach: reachRef.current }) }));
             }
           }
         }
@@ -1112,6 +1145,9 @@ export function GameSession({ session, mode }) {
     })();
     return () => {
       stopped = true;
+      // the game closes: every death held for the game to show is shown now (recorded already)
+      revealer.current.releaseAll();
+      revealRef.current?.(null);
       resetRomData(); // (this game's types and species names end with its session)
       clearInterval(autoTimer);
       clearInterval(songTimer);
@@ -1148,7 +1184,7 @@ export function GameSession({ session, mode }) {
   // why fleeing there "didn't count"
   const dupeRef = useRef(null);
   dupeRef.current = (q) => {
-    if (!doc || !manifest || !me || doc.get('run:status', null) || missedTr.current.caughtAt(q) || !q.foe?.species) return false;
+    if (!doc || !manifest || !me || doc.get('run:status', null) || missedTr.current.caughtAt(q) || !q.foe?.species || beforeBalls(doc, manifest, me)) return false;
     if (!dupeOf(doc, manifest, runData, q.foe.species, me)) return false;
     const at = q.here ? areaForPlace(doc, manifest, genOfRun(manifest, runData), q.here) : null;
     return !at || !encounter(doc, at, me);
@@ -1186,6 +1222,14 @@ export function GameSession({ session, mode }) {
     emu()?.setTurboAudio?.(turboAudio);
     diag('music', { type: 'turboAudio', mode: turboAudio });
   }, [phase, turboAudio]);
+
+  // "Nothing counts before your first Poké Balls": a calm note while it holds; when the rules start, said once
+  const ballsNote = isRun && !!doc && !!manifest && !!me && !doc.get('run:status', null) && beforeBalls(doc, manifest, me);
+  const ballsWas = useRef(ballsNote);
+  useEffect(() => {
+    if (ballsWas.current && !ballsNote && doc && manifest && getRules(doc, manifest).startAtBalls && doc.get(`balls:${me}`, null)) flash(t('play.ballsStart', 'Rules start now – first Poké Balls'), 3500);
+    ballsWas.current = ballsNote;
+  }, [ballsNote]);
 
   // The run just ended (a wipe here or at the partner's): stop the game, so the notice isn't missed mid-battle.
   const runStatus = isRun ? doc?.get('run:status') : null;
@@ -1464,7 +1508,7 @@ export function GameSession({ session, mode }) {
             ${asked && html`<${MissedPrompt} key=${asked.id} missed=${asked.foe} here=${asked.here} onDone=${(no) => { setQuestions((qs) => (no ? dropQuestion(qs, asked, { areaOf: (q) => areaRef.current(q) }) : qs.filter((q) => q !== asked))); focusGame(); }} />`}
             ${confirmReset && html`<div class="screen-confirm" role="alertdialog" aria-live="assertive">
               <span class="grow">${t('play.resetConfirm', 'Reset the game? Unsaved progress is lost.')}</span>
-              <button class="btn small primary" onClick=${() => { setConfirmReset(false); emu()?.restart(); focusGame(); }}>${t('play.resetYes', 'Reset')}</button>
+              <button class="btn small primary" onClick=${() => { setConfirmReset(false); emu()?.restart(); revealNow(); focusGame(); }}>${t('play.resetYes', 'Reset')}</button>
               <button class="btn small ghost" data-pad-back onClick=${() => { setConfirmReset(false); focusGame(); }}>${t('common.cancel', 'Cancel')}</button>
             </div>`}
             ${confirmCheat && !confirmReset && !pendingLoad && html`<div class="screen-confirm" role="alertdialog" aria-live="assertive">
@@ -1562,6 +1606,8 @@ export function GameSession({ session, mode }) {
             ? t('play.liveHackRun', 'This ROM hack runs on an expanded engine (new Pokémon numbers and a different memory layout) that souldew can’t read reliably yet – so it shows nothing rather than wrong Pokémon. The run still works: enter catches by hand.')
             : t('play.liveHackSolo', 'This ROM hack runs on an expanded engine (new Pokémon numbers and a different memory layout) that souldew can’t read reliably yet – so it shows nothing rather than wrong Pokémon.')}</span>`}
           ${ctrUpdateNote(ctrUpdate, liveState.status === 'live') && html`<span class="small muted">${ctrUpdateNote(ctrUpdate, liveState.status === 'live')}</span>`}
+          ${ballsNote && html`<p class="tiny muted balls-note" role="note">${solo ? t('play.ballsNoteSolo', 'Before your first Poké Balls nothing counts.')
+            : t('play.ballsNote', 'Before your first Poké Balls nothing counts for you – only a partner’s loss still takes your linked Pokémon along.')}</p>`}
           ${isRun && names
             ? html`<${LinkedPairs} mine=${myParty} gen=${gameGen} compact=${!!battle?.enemy} />`
             : liveState.status !== 'unsupported' && liveState.status !== 'hack' && html`<${PartyGrid} party=${myParty} gen=${gameGen} compact accent="var(--p1)" label=${t('play.yourTeam', 'Your team')} noItems=${features?.items === 'no'} />`}
@@ -1775,8 +1821,21 @@ function AzaharBridge({ fresh, isRun }) {
  * rewrite from one in progress, Gen 6/7 a deposited Pokémon from a slot being rewritten – only by comparing reads.
  */
 export function ExternalFeed() {
-  const { liveInfo, applySnap, manifest, externalRun } = useApp();
+  const { liveInfo, applySnap, revealDeaths, manifest, externalRun } = useApp();
   const readState = useRef({});
+  // (deaths shown when the game shows them, lib/reveal.mjs – the emulator's speed isn't known here: timed at 1×)
+  const reveal = useRef(null);
+  if (!reveal.current) reveal.current = new DeathReveal();
+  const revealRef = useRef(revealDeaths);
+  revealRef.current = revealDeaths;
+  useEffect(() => {
+    const id = setInterval(() => revealRef.current?.(reveal.current.idle({ speed: 1 })), 1000);
+    return () => {
+      clearInterval(id);
+      reveal.current.releaseAll();
+      revealRef.current?.(null);
+    };
+  }, []);
   useEffect(() => {
     if (!liveInfo?.regions || !manifest || externalRun?.runId !== manifest.id) return;
     (async () => {
@@ -1797,7 +1856,10 @@ export function ExternalFeed() {
       // (the ROM's types too: the Gen 3 Pokémon's abilities come with them – romtypes.mjs gbaAbilities)
       const types = entry.gen === 3 && externalRun.rom ? romOwnNow()?.types || null : null;
       const res = readLiveParty(entry, regionReader(liveInfo.regions), (sp ? T.withSpecies(sp) : T).withRom(types ? { types } : null).withShinyOdds(shinyThreshold(manifest.shiny)), readState.current);
-      if (res?.party) applySnap({ source: 'live', party: confirmFaints(res.party, readState.current), game: entry.id, ...(res.badges !== undefined ? { badges: res.badges } : {}) });
+      if (!res?.party) return;
+      const party = confirmFaints(res.party, readState.current);
+      const shown = reveal.current.see(party, { speed: 1, gen: entry.gen });
+      applySnap({ source: 'live', party, game: entry.id, ...(res.badges !== undefined ? { badges: res.badges } : {}) }, { held: shown.held });
     })().catch((err) => console.warn('live frame', err));
   }, [liveInfo?.at]);
   return null;

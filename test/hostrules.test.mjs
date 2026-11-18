@@ -23,7 +23,7 @@ process.env.SLS_DATA_DIR = DATA;
 test.after(() => rmSync(DATA, { recursive: true, force: true }));
 
 const H = await import('../shared/hostrules.mjs');
-const { DEFAULT_RULES, rulesWithDefaults } = await import('../shared/rules.mjs');
+const { DEFAULT_RULES, NEW_RUN_RULES, rulesWithDefaults } = await import('../shared/rules.mjs');
 const { PACK_FORMAT, packFormatState } = await import('../shared/runpack.mjs');
 const { restartRequest } = await import('../shared/restart.mjs');
 const { buildRun, runPack, checkPack, readManifest, writeManifest, runDir } = await import('../server/lib/build.mjs');
@@ -43,7 +43,7 @@ const build = (o = {}) => buildRun({ romId: ROM, randomize: false, config: {}, p
 /** The host's own rules – every rule off its default. */
 const MINE = {
   typeClause: 'party', dupes: 'both', missedDupes: true, failKillsPair: false, shinyClause: false, gifts: 'free', levelCaps: false,
-  cheats: true, lives: 3, livesPool: 'player', typeHelp: false, autoAssign: false, autoDeath: false,
+  cheats: true, lives: 3, livesPool: 'player', typeHelp: false, autoAssign: false, autoDeath: false, startAtBalls: false,
 };
 
 function mkDoc(by, runId = 't') {
@@ -82,14 +82,17 @@ const slEditors = (value, n, disabled) => (onChange) => [
   UI.TypeHelpRule({ value: value.typeHelp, onChange: (v) => onChange({ typeHelp: v }), locked: disabled }),
   UI.LivesRule({ value: value.lives, pool: value.livesPool, players: n, onChange, variant: 'wizard', disabled }),
   UI.SoulLinkAuto({ value, onChange, players: n, disabled }),
+  UI.BallsRule({ value: value.startAtBalls, onChange: (v) => onChange({ startAtBalls: v }), players: n, disabled }),
 ];
 
 test('every SoulLink rule: the list is the defaults’ (no rule missed), the wizard and the board edit each of them', () => {
   // every rule of the defaults – `sounds` is no rule any more (the app’s setting), `giftsCount` the old name of `gifts`
   assert.deepEqual([...H.SOULLINK_RULE_KEYS].sort(), Object.keys(DEFAULT_RULES).filter((k) => !['sounds', 'giftsCount'].includes(k)).sort());
   assert.ok(!/rules\.sounds|\.sounds\b/.test(src('web/lib/run.mjs')), 'nothing reads rules.sounds');
-  // the wizard starts from today's defaults – all of them
-  assert.deepEqual(H.soulLinkDefaults(), Object.fromEntries(H.SOULLINK_RULE_KEYS.map((k) => [k, DEFAULT_RULES[k]])));
+  // the wizard starts from today's defaults – all of them, a new run's where they differ (older runs keep the defaults)
+  assert.deepEqual(H.soulLinkDefaults(), Object.fromEntries(H.SOULLINK_RULE_KEYS.map((k) => [k, k in NEW_RUN_RULES ? NEW_RUN_RULES[k] : DEFAULT_RULES[k]])));
+  assert.equal(H.soulLinkDefaults().startAtBalls, true, 'a new SoulLink: nothing counts before the first Poké Balls');
+  assert.equal(DEFAULT_RULES.startAtBalls, false, 'a run from before keeps counting from the start');
   assert.deepEqual(Object.keys(H.soulLinkRulesFrom(null)), H.SOULLINK_RULE_KEYS);
   for (const n of [2, 3, 4]) {
     const keys = patchKeys(slEditors({ ...H.soulLinkDefaults(), lives: 3 }, n, false));
@@ -104,11 +107,12 @@ test('every SoulLink rule: the list is the defaults’ (no rule missed), the wiz
 test('the wizard sends every rule the host set (2 and 4 players) – and no longer says they are set on the board', () => {
   const wizard = src('web/views/soullink.mjs');
   assert.match(wizard, /const \[slRules, setSlRules\] = useState\(\(\) => soulLinkRulesFrom\(from && runMode\(from\) === 'soullink' \? from\.rules : null\)\);/);
-  assert.match(wizard, /rules: solo \? \{ \.\.\.nzRules, \.\.\.lives, typeHelp \} : slRules,/);
+  assert.match(wizard, /rules: solo \? \{ \.\.\.nzRules, \.\.\.lives, typeHelp, startAtBalls \} : slRules,/);
   for (const part of ['<${SoulLinkRules} variant="wizard" value=${slRules} onChange=${patchSl} players=${count} />',
     '<${TypeHelpRule} value=${slRules.typeHelp} onChange=${(v) => patchSl({ typeHelp: v })} />',
     '<${LivesRule} variant="wizard" value=${slRules.lives} pool=${slRules.livesPool} players=${count} onChange=${patchSl} />',
-    '<${SoulLinkAuto} value=${slRules} onChange=${patchSl} players=${count} />']) assert.ok(wizard.includes(part), part);
+    '<${SoulLinkAuto} value=${slRules} onChange=${patchSl} players=${count} />',
+    '<${BallsRule} value=${slRules.startAtBalls} players=${count} onChange=${(v) => patchSl({ startAtBalls: v })} />']) assert.ok(wizard.includes(part), part);
   assert.ok(!/set together on the board|rulesHintLink|rulesHintGroup/.test(wizard), 'the old hint is gone');
   // what the wizard collects from its controls is what it sends: start from the defaults, change everything
   let sent = H.soulLinkRulesFrom(null);

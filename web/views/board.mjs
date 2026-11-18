@@ -8,7 +8,7 @@ import { play } from '../lib/sound.mjs';
 import {
   progression, pairState, setEncounter, markDead, revive, markExtraDead, party, live, counts, checks, feedList, feed, feedText, causeText, msg, areaName, joinNames,
   players as getPlayers, rules as getRules, levelCap, dupeOf, resumeRun, slotsOf, encounter, openAreas, runStats, isNuzlocke, logRulesChange,
-  stampLivesChange, allowedRulesPatch, hostSlotOf, canEditRules, lives as getLives, livesFor, lastWildAt, genOfRun, shinyNote,
+  stampLivesChange, allowedRulesPatch, hostSlotOf, canEditRules, lives as getLives, livesFor, lastWildAt, genOfRun, shinyNote, beforeBalls,
 } from '../lib/run.mjs';
 import { writeHostRules } from '../lib/hostrules.mjs';
 import { PartyPanel, PartyGrid, TeamColumns, unhatched } from './party.mjs';
@@ -17,7 +17,7 @@ import { HostCode, PackVersionNote } from './invitecode.mjs';
 import { RestartModal } from './restart.mjs';
 import { KeepIntroItem } from './introsave.mjs';
 import { useStreamer } from '../lib/streamer.mjs';
-import { NuzlockeRules, Choice, TypeHelpRule, LivesRule, SoulLinkRules, SoulLinkAuto, HostRulesNote } from './nuzrules.mjs';
+import { NuzlockeRules, Choice, TypeHelpRule, LivesRule, SoulLinkRules, SoulLinkAuto, HostRulesNote, BallsRule } from './nuzrules.mjs';
 import { ShareButton, HallOfFame } from './liveshare.mjs';
 import { deathEvent } from '../lib/liveshare.mjs';
 
@@ -942,6 +942,11 @@ export function RulesTab() {
       <${SoulLinkRules} value=${r} onChange=${set} players=${n} disabled=${locked} />
     </section>`}
     <section class="panel stack">
+      <h2>${t('rules.ballsTitle', 'When the rules start')}</h2>
+      <${BallsRule} value=${r.startAtBalls} players=${n} onChange=${(v) => set({ startAtBalls: v })} disabled=${locked} />
+      ${r.startAtBalls && html`<${BallsStatus} />`}
+    </section>
+    <section class="panel stack">
       <h2>${t('lives.title', 'Lives')}</h2>
       <${LivesRule} value=${r.lives} pool=${r.livesPool} players=${n} onChange=${set} left=${getLives(doc, manifest)} ended=${!!doc.get('run:status')} disabled=${locked}
         names=${Object.fromEntries(Object.entries(getPlayers(doc, manifest)).map(([s, p]) => [s, p.name]))} />
@@ -959,6 +964,22 @@ export function RulesTab() {
         <p class="tiny faint">${solo ? t('rules.discordLocalSolo', 'Stays on this computer.') : n > 2 ? t('rules.discordLocalGroup', 'Stays on this computer – the others can add their own.') : t('rules.discordLocal', 'Stays on this computer – your partner can add their own.')}</p></div>
     </section>
   </div>`;
+}
+
+/** Whose rules have started ("nothing counts before your first Poké Balls"): each player by their own bag. */
+function BallsStatus() {
+  const { doc, manifest, me } = useApp();
+  const names = getPlayers(doc, manifest);
+  const slots = slotsOf(manifest);
+  const line = (s) => {
+    const waiting = beforeBalls(doc, manifest, s);
+    const name = names[s]?.name || s.toUpperCase();
+    if (slots.length === 1) return waiting ? t('rules.ballsWaitingSolo', 'Waiting for your first Poké Balls – nothing counts yet.') : t('rules.ballsStartedSolo', 'Your rules have started.');
+    return waiting
+      ? s === me ? t('rules.ballsWaitingMine', 'You: waiting for your first Poké Balls – your own Pokémon don’t die yet.') : t('rules.ballsWaitingOther', '{name}: waiting for the first Poké Balls.', { name })
+      : s === me ? t('rules.ballsStartedMine', 'You: your rules have started.') : t('rules.ballsStartedOther', '{name}: rules have started.', { name });
+  };
+  return html`<ul class="small muted">${slots.map((s) => html`<li key=${s}>${line(s)}</li>`)}</ul>`;
 }
 
 function SpoilerTab() {
