@@ -1407,7 +1407,7 @@
   // most controller-like one. EmulatorJS gives player 1 to whatever the browser lists first – on Windows that can be a
   // USB microphone (issue #2), and the real controller then pressed nothing. So its gamepad events go through here:
   // only the chosen device's reach the game, always as player 1.
-  let padWanted = null; // config.pads.device – Settings › Controller › "Controller to use"
+  let padCfg = null; // config.pads – Settings › Controller
   let padActions = {}; // controller shortcuts: standard button index → action (lib/controls.mjs padActions, set with the controls)
   function startPads(c) {
     const joypad = c.BUTTONS.filter(c.isJoypad); // (not the 3DS half tilt)
@@ -1425,7 +1425,7 @@
       for (const d of Object.keys(stick)) stick[d] = false;
     };
     const choose = () => {
-      const pad = c.pickPad(navigator.getGamepads?.() || [], padWanted);
+      const pad = c.pickPad(navigator.getGamepads?.() || [], padCfg);
       const name = pad ? `${pad.id}_${pad.index}` : null;
       if (name !== chosen) {
         if (chosen) release(); // a new device: nothing stays pressed from the old one
@@ -1492,7 +1492,7 @@
     if (!c || sig === controlsSig) return; // (the play view hands them over once the game runs – mostly what was read at start)
     controlsSig = sig;
     const table = c.ejsControls(config?.controls, undefined, config?.pads)[0];
-    padWanted = config?.pads?.device || null;
+    padCfg = config?.pads || null;
     hotkeys = c.resolveHotkeys(config?.controls);
     padActions = c.padActions(config?.pads);
     window.parent?.postMessage({ type: 'emu-pad', action: 'ffHold', down: false }, location.origin); // (held under the old buttons)
@@ -1509,7 +1509,7 @@
       window.EJS_defaultControls = c.ejsControls(st?.config?.controls, undefined, st?.config?.pads);
       controlsLib = c;
       controlsSig = JSON.stringify([st?.config?.controls || null, st?.config?.pads || null]);
-      padWanted = st?.config?.pads?.device || null;
+      padCfg = st?.config?.pads || null;
       hotkeys = c.resolveHotkeys(st?.config?.controls);
       padActions = c.padActions(st?.config?.pads);
       startPads(c);

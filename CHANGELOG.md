@@ -2,6 +2,11 @@
 
 `npm run release` takes the release notes from the section of the version being released.
 
+## Unreleased
+
+- **Choose between controllers with the same name.** Settings › Controller shows each numbered slot separately.
+  This lets you choose a wireless Xbox-compatible controller while another controller reports the same name.
+
 ## 2.8.3
 
 - **Nothing counts before your first Poké Balls** (thanks to players on Discord). Most Nuzlocke rules only start once

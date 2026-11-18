@@ -249,8 +249,21 @@ test('config: theme and controller settings are stored only in a valid shape', a
     assert.deepEqual(c.pads, { preset: 'xbox', device: ps5 }, 'an overlong device id is refused');
     c = await post({ pads: { device: 'Pad\nwith a line break' } });
     assert.deepEqual(c.pads, { preset: 'xbox', device: ps5 }, 'control characters are refused');
+    const xbox = 'Xbox 360 Controller (XInput STANDARD GAMEPAD)';
+    for (const deviceIndex of [0, 1]) {
+      const selected = { preset: 'xbox', device: xbox, deviceIndex };
+      c = await post({ pads: selected });
+      assert.deepEqual(c.pads, selected, 'the chosen browser slot is stored, including zero');
+    }
+    const selected = c.pads;
+    for (const deviceIndex of [-1, 0.5, '1', {}, Number.MAX_SAFE_INTEGER + 1]) {
+      c = await post({ pads: { device: xbox, deviceIndex } });
+      assert.deepEqual(c.pads, selected, 'an invalid browser slot is refused');
+    }
+    c = await post({ pads: { deviceIndex: 1 } });
+    assert.deepEqual(c.pads, selected, 'a browser slot needs a device id');
     c = await post({ pads: { preset: 'xbox' } });
-    assert.deepEqual(c.pads, { preset: 'xbox' }, '"Automatic" forgets the device');
+    assert.deepEqual(c.pads, { preset: 'xbox' }, '"Automatic" forgets the device and its slot');
   } finally {
     server.closeAllConnections(); // fetch keeps the connection alive – close() alone would wait for it
     server.close();

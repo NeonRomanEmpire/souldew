@@ -479,7 +479,7 @@ function tick() {
   const now = performance.now();
   const g = globalThis.navigator?.getGamepads?.() || [];
   const cfg = state.config() || {};
-  const pad = pickPad(g, cfg.pads?.device || null);
+  const pad = pickPad(g, cfg.pads);
   const on = enabled();
   if (!pad || !on) {
     shared().mute = false;

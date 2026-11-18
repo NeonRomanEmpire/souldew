@@ -81,7 +81,8 @@ Object.assign(globalThis, {
     return json({}); // translations
   },
 });
-Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { language: 'en', getGamepads: () => [pad, null, null, null] } });
+let gamepads = [pad, null, null, null];
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { language: 'en', getGamepads: () => gamepads } });
 
 // the page imports its modules by their path on the server – here they come from web/lib/
 const src = readFileSync(new URL('nativeplayer.mjs', LIB), 'utf8').replace(/from '\/lib\/([\w-]+\.mjs)'/g, (m, f) => `from '${new URL(f, LIB).href}'`);
@@ -132,6 +133,30 @@ test('fast player: a controller re-bound while the game runs applies at once –
   assert.deepEqual(await tap(0), ['b']);
 });
 
+test('fast player: a receiver with the same Xbox id as the built-in pad sends its buttons to the game', async () => {
+  await until(() => globalThis.__emu?.ready);
+  const id = 'Xbox 360 Controller (XInput STANDARD GAMEPAD)';
+  const make = (index) => ({ ...pad, id, index, buttons: pad.buttons.map(() => ({ pressed: false, value: 0 })) });
+  const legion = make(0);
+  const receiver = make(1);
+  gamepads = [legion, receiver, null, null];
+  try {
+    globalThis.__emu.setControls({ controls: null, pads: { preset: 'xbox', device: id, deviceIndex: 1 } });
+    Object.assign(legion.buttons[0], { pressed: true, value: 1 });
+    await sleep(80);
+    assert.deepEqual(held(), [], 'the other controller cannot press A');
+    Object.assign(receiver.buttons[0], { pressed: true, value: 1 });
+    await sleep(80);
+    assert.deepEqual(held(), ['a'], 'the selected receiver presses A');
+    Object.assign(receiver.buttons[0], { pressed: false, value: 0 });
+    await sleep(80);
+    assert.deepEqual(held(), [], 'releasing the receiver releases A');
+  } finally {
+    gamepads = [pad, null, null, null];
+    globalThis.__emu.setControls({ controls: null, pads: null });
+  }
+});
+
 test('fast player: re-bound keyboard keys apply at once too; the same settings again change nothing', async () => {
   await until(() => globalThis.__emu?.ready);
   const before = inputs.length;
@@ -163,13 +188,13 @@ test('every player takes changed controls while it runs, and the play view hands
     const s = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.match(s, /setControls\(config\) \{\n\s+applyControls\(config\);/, `${f}: __emu.setControls`);
     // the controller loop reads the current settings on every poll, not a copy made at start
-    assert.match(s, /controls\.pickPad\(navigator\.getGamepads\?\.\(\) \|\| \[\], padCfg\?\.device \|\| null\)/, f);
+    assert.match(s, /controls\.pickPad\(navigator\.getGamepads\?\.\(\) \|\| \[\], padCfg\)/, f);
     assert.match(s, /Object\.entries\(padButtons\)/, f);
     assert.doesNotMatch(s, /function startPads\(pads\)/, f);
   }
   const html = readFileSync(new URL('../web/player.html', import.meta.url), 'utf8');
   assert.match(html, /setControls: \(config\) => setControls\(config\)/);
-  assert.match(html, /c\.pickPad\(navigator\.getGamepads\?\.\(\) \|\| \[\], padWanted\)/);
+  assert.match(html, /c\.pickPad\(navigator\.getGamepads\?\.\(\) \|\| \[\], padCfg\)/);
   // EmulatorJS' live table gets the new bindings (it looks every key and gamepad event up there)
   assert.match(html, /const now = E\(\)\?\.controls\?\.\[0\];/);
   const play = readFileSync(new URL('../web/views/play.mjs', import.meta.url), 'utf8');

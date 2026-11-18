@@ -545,7 +545,7 @@ function startPads() {
   const held = {};
   setInterval(() => {
     if (!st.ready || document.visibilityState === 'hidden') return;
-    const pad = controls.pickPad(navigator.getGamepads?.() || [], padCfg?.device || null);
+    const pad = controls.pickPad(navigator.getGamepads?.() || [], padCfg);
     padRec.see(pad, padButtons, controls.appHasPad());
     if (!pad) {
       if (inp.pad) {

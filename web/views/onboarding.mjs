@@ -25,7 +25,7 @@ export function Onboarding({ onDone }) {
   const [, force] = useState(0);
   const nameRef = useRef(null);
   const panelRef = useRef(null);
-  const pad = pickPad(usePads(), cfg.pads?.device); // the controller that plays – not a microphone listed before it (#2)
+  const pad = pickPad(usePads(), cfg.pads); // the controller that plays – not a microphone listed before it (#2)
   // Move focus into the new step so keyboard and screen-reader users land on its first control.
   useEffect(() => {
     const id = setTimeout(() => {

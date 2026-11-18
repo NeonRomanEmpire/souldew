@@ -757,7 +757,7 @@ function startPads() {
   const axis = (x) => (Math.abs(x) < 0.12 ? 0 : Math.round(Math.max(-1, Math.min(1, x)) * 0x7fff));
   setInterval(() => {
     if (!st.ready || document.visibilityState === 'hidden') return;
-    const pad = controls.pickPad(navigator.getGamepads?.() || [], padCfg?.device || null);
+    const pad = controls.pickPad(navigator.getGamepads?.() || [], padCfg);
     padRec.see(pad, padButtons, controls.appHasPad());
     if (!pad) {
       if (inp.pad || inp.slowPad || inp.lx || inp.ly || inp.rx || inp.ry) Object.assign(inp, { pad: 0, slowPad: false, lx: 0, ly: 0, rx: 0, ry: 0 }), sendInput();

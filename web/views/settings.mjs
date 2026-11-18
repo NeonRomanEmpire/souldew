@@ -6,7 +6,7 @@ import { t, LANGS, setLang, currentLang } from '../lib/i18n.mjs';
 import { api } from '../lib/api.mjs';
 import { applyTheme } from '../lib/theme.mjs';
 import { BUTTONS, PRESETS, bindable, keyLabel, keyFor, resolve as resolveControls, presetMap, activePreset, detectLayout, currentLayout,
-  PAD_LABELS, PAD_PRESETS, PAD_HOTKEY_IDS, PAD_HOTKEY_DEFAULTS, padMap, padFamily, padLabel, pickPad, padKey, looksLikePad,
+  PAD_LABELS, PAD_PRESETS, PAD_HOTKEY_IDS, PAD_HOTKEY_DEFAULTS, padMap, padFamily, padLabel, pickPad, preferredPad, padKey, looksLikePad,
   HOTKEY_IDS, HOTKEY_ROWS, isHotkeyId, resolveHotkeys, refusedHotkeys, hotkeyBindable, sameCombo, plainCombo, combo, reservedCombo, assignKey, clearKey, changedBindings,
   padHotkeys, assignPad, PAD_NONE } from '../lib/controls.mjs';
 import { buttonLabel, comboLabel, hotkeyLabel } from './guide.mjs';
@@ -286,32 +286,37 @@ export const padName = (id) => String(id || '').replace(/\s*\(.*\)\s*$/, '') || 
 
 /**
  * Which connected device plays (lib/controls.mjs pickPad): "Automatic" or one the player picked – remembered as
- * config.pads.device. Shown as soon as there is a choice to make: two devices, one that doesn't look like a controller,
- * or a remembered one.
+ * config.pads.device, plus its browser slot when multiple controllers share that id.
  */
-function PadPicker({ pads, saved, pad, onPick }) {
-  const wanted = saved?.device ? padKey(saved.device) : '';
-  const missing = wanted && !pads.some((p) => padKey(p.id) === wanted);
+function PadPicker({ pads, saved, onPick }) {
+  const wanted = padKey(saved?.device);
   if (pads.length < 2 && !wanted && (!pads.length || looksLikePad(pads[0]))) return null;
+  const selected = preferredPad(pads, saved);
   const auto = pickPad(pads);
-  // the same model twice has the same id – they are told apart by their slot
-  const twice = (p) => pads.filter((q) => q.id === p.id).length > 1;
-  const label = (p) => `${padName(p.id)}${twice(p) ? ` (${p.index + 1})` : ''}${looksLikePad(p) ? '' : ` – ${t('pad.notAPad', 'doesn’t look like a controller')}`}`;
+  const twice = (p) => pads.filter((q) => padKey(q.id) === padKey(p.id)).length > 1;
+  const name = (id, index) => `${padName(id)}${index == null ? '' : ` (${index + 1})`}`;
+  const optionName = (p) => name(p.id, twice(p) || (p === selected && saved?.deviceIndex != null) ? p.index : null);
+  const label = (p) => `${optionName(p)}${looksLikePad(p) ? '' : ` – ${t('pad.notAPad', 'doesn’t look like a controller')}`}`;
+  const choose = (value) => {
+    const p = pads.find((pad) => String(pad.index) === value);
+    onPick(p ? { device: padKey(p.id), ...(twice(p) ? { deviceIndex: p.index } : {}) } : {});
+  };
   return html`<div class="grid-2"><label class="field"><span>${t('pad.use', 'Controller to use')}</span>
-    <select value=${wanted} onChange=${(e) => onPick(e.target.value || null)}>
-      <option value="">${auto ? t('pad.auto', 'Automatic – {name}', { name: padName(auto.id) }) : t('pad.autoNone', 'Automatic')}</option>
-      ${pads.filter((p, i) => pads.findIndex((q) => q.id === p.id) === i).map((p) => html`<option value=${padKey(p.id)}>${label(p)}</option>`)}
-      ${missing && html`<option value=${wanted}>${t('pad.missing', '{name} (not connected)', { name: padName(wanted) })}</option>`}
+    <select value=${selected ? String(selected.index) : wanted ? 'missing' : ''} onChange=${(e) => choose(e.target.value)}>
+      <option value="">${auto ? t('pad.auto', 'Automatic – {name}', { name: optionName(auto) }) : t('pad.autoNone', 'Automatic')}</option>
+      ${pads.map((p) => html`<option value=${String(p.index)}>${label(p)}</option>`)}
+      ${wanted && !selected && html`<option value="missing" disabled>${t('pad.missing', '{name} (not connected)', { name: name(wanted, saved.deviceIndex) })}</option>`}
     </select></label>
-    <span class="small faint pad-pick-hint">${pad && wanted && padKey(pad.id) === wanted ? t('pad.remembered', 'souldew remembers this controller and uses it whenever it is connected.')
+    <span class="small faint pad-pick-hint">${selected ? t('pad.remembered', 'souldew remembers this controller and uses it whenever it is connected.')
       : t('pad.autoHint', 'Automatic picks a real controller and skips microphones, headsets and other devices the system lists as controllers.')}</span></div>`;
 }
 
 function PadSection({ saved, save, nav, saveNav }) {
   const pads = usePads();
-  const pad = pickPad(pads, saved?.device);
+  const pad = pickPad(pads, saved);
   const odd = !pad && pads.length ? pads : null; // only devices that don't look like a controller
-  const keep = saved?.device ? { device: saved.device } : {};
+  const { device, deviceIndex } = saved || {};
+  const keep = device ? { device, ...(deviceIndex == null ? {} : { deviceIndex }) } : {};
   const family = pad?.family || 'generic';
   const map = padMap(saved);
   const hot = padHotkeys(saved); // the shortcuts' buttons – ZR turbo, ZL pause, fast-forward none unless picked here
@@ -336,8 +341,8 @@ function PadSection({ saved, save, nav, saveNav }) {
     if (all[id] === label) return setMsg(null);
     // it takes the button over – whatever had it is left without one (or swaps, if the player wants)
     const { next, lost, swap } = assignPad(saved, id, label);
-    save({ pads: { ...next, ...keep } });
-    setMsg(lost.length ? { at: id, undo: saved, swap: swap && { ...swap, ...keep },
+    save({ pads: next });
+    setMsg(lost.length ? { at: id, undo: saved, swap,
       text: lost.map((l) => t('ctl.tookOver2', '{key} was the key for “{action}” – it has no key now.', { key: show(label), action: nameOf(l.id) })).join(' ') } : null);
   }, [pad?.pressed?.join(), listen]);
   useEffect(() => {
@@ -352,10 +357,10 @@ function PadSection({ saved, save, nav, saveNav }) {
     };
   }, [listen]);
   const pick = (id) => { setListen(null); setMsg(null); save({ pads: { preset: id, ...keep } }); };
-  const choose = (device) => {
+  const choose = (selection) => {
     setListen(null);
     setMsg(null);
-    save({ pads: { ...(saved?.preset ? { preset: saved.preset } : {}), ...(saved?.map ? { map: saved.map } : {}), ...(device ? { device } : {}) } });
+    save({ pads: { ...(saved?.preset ? { preset: saved.preset } : {}), ...(saved?.map ? { map: saved.map } : {}), ...selection } });
   };
   const off = (id) => {
     setListen(null);
@@ -392,7 +397,7 @@ function PadSection({ saved, save, nav, saveNav }) {
         : odd ? html`<span class="small">${t('pad.onlyOdd', 'No controller found – {name} doesn’t look like one. Connect your controller and press a button on it, or pick the device below if it is one.', { name: odd.map((p) => padName(p.id)).join(', ') })}</span>`
         : html`<span class="small">${t('pad.none', 'No controller found. Connect one and press any button on it.')}</span>`}
     </div>
-    <${PadPicker} pads=${pads} saved=${saved} pad=${pad} onPick=${choose} />
+    <${PadPicker} pads=${pads} saved=${saved} onPick=${choose} />
     <label class="check"><input type="checkbox" checked=${nav} onChange=${(e) => saveNav(e.target.checked)} /><span>${t('pad.nav', 'Navigate the app with a controller')}
       <span class="hint">${pause ? t('pad.navHint', 'D-pad or left stick moves between buttons, A presses, B goes back, L and R switch sections or tabs, Start jumps to the sidebar, the right stick scrolls. While a game runs, the controller belongs to the game – pause it ({button} or Home) to use the menus.', { button: pause })
         : t('pad.navHintHome', 'D-pad or left stick moves between buttons, A presses, B goes back, L and R switch sections or tabs, Start jumps to the sidebar, the right stick scrolls. While a game runs, the controller belongs to the game – pause it (Home) to use the menus.')}</span></span></label>

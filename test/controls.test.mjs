@@ -199,15 +199,36 @@ test('controllers: the controller chosen in Settings plays whenever it is connec
   const mic = fakePad(0, MIC, { buttons: 3, axes: 0 });
   const ps5 = fakePad(1, DUALSENSE, { mapping: 'standard' });
   const xbox = fakePad(2, XBOX, { mapping: 'standard' });
-  assert.equal(c.pickPad([mic, ps5, xbox], XBOX), xbox);
+  assert.equal(c.pickPad([mic, ps5, xbox], { device: XBOX }), xbox);
   // the player's own choice wins over the heuristics
-  assert.equal(c.pickPad([mic, ps5], MIC), mic);
+  assert.equal(c.pickPad([mic, ps5], { device: MIC }), mic);
   // remembered but not connected: the automatic choice
-  assert.equal(c.pickPad([mic, ps5], 'Some Other Pad (Vendor: 0001)'), ps5);
+  assert.equal(c.pickPad([mic, ps5], { device: 'Some Other Pad (Vendor: 0001)' }), ps5);
   // the stored key is the trimmed id (indexes change from start to start, the id doesn't)
   assert.equal(c.padKey(`  ${DUALSENSE} `), DUALSENSE);
-  assert.equal(c.pickPad([mic, xbox, ps5], ` ${DUALSENSE}`), ps5);
+  assert.equal(c.pickPad([mic, xbox, ps5], { device: ` ${DUALSENSE}` }), ps5);
   assert.equal(c.padKey('x'.repeat(300)).length, 200);
+});
+
+test('controllers: two Xbox pads with the same browser id can be selected separately', async () => {
+  const c = await import('../web/lib/controls.mjs');
+  const legion = fakePad(0, XBOX, { mapping: 'standard' });
+  const receiver = fakePad(1, XBOX, { mapping: 'standard' });
+  const selected = { device: XBOX, deviceIndex: 1 };
+  assert.equal(c.pickPad([legion, receiver], selected), receiver);
+  assert.equal(c.pickPad([receiver, legion], selected), receiver, 'the browser slot is independent of array position');
+  assert.equal(c.pickPad([legion, receiver], { device: XBOX, deviceIndex: 0 }), legion);
+  assert.equal(c.pickPad([legion, receiver], { device: XBOX }), legion, 'settings saved before slot selection still work');
+  assert.equal(c.pickPad([legion, null, { ...receiver, connected: false }], selected), legion, 'a disconnected preferred slot falls back');
+  const ps5 = fakePad(0, DUALSENSE, { mapping: 'standard' });
+  const otherXbox = fakePad(2, XBOX, { mapping: 'standard' });
+  assert.equal(c.pickPad([ps5, null, otherXbox], selected), ps5, 'a missing slot uses automatic selection');
+  assert.equal(c.pickPad([ps5, null, otherXbox], { device: XBOX }), otherXbox, 'legacy id-only selection follows that id');
+  assert.equal(c.pickPad([null, receiver], selected), receiver, 'a gap before the receiver preserves its slot');
+  assert.equal(c.pickPad([], selected), null);
+  const rebound = c.assignPad({ preset: 'xbox', ...selected }, 'a', 'BUTTON_4');
+  assert.equal(rebound.next.deviceIndex, 1, 'remapping keeps the chosen slot');
+  assert.equal(rebound.swap.deviceIndex, 1, 'swapping bindings keeps the chosen slot');
 });
 
 test('controller diagnostics: the picked device and each new press with the game buttons it maps to', async () => {

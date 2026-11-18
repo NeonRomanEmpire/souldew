@@ -547,7 +547,9 @@ export function assignPad(pads, id, label) {
   for (const l of lost) map[l.id] = PAD_NONE;
   const old = all[id];
   map[id] = label;
-  const keep = { preset: (PAD_PRESETS.find((p) => p.id === pads?.preset) || PAD_PRESETS[0]).id, ...(pads?.device ? { device: pads.device } : {}) };
+  const { device, deviceIndex } = pads || {};
+  const keep = { preset: (PAD_PRESETS.find((p) => p.id === pads?.preset) || PAD_PRESETS[0]).id,
+    ...(device ? { device, ...(deviceIndex == null ? {} : { deviceIndex }) } : {}) };
   const tidy = (m) => Object.fromEntries(Object.entries(m).filter(([k, v]) => !(v === PAD_NONE && (PAD_HOTKEY_DEFAULTS[k] === '' || SHARED_PAD[k] === ''))));
   const next = { ...keep, map: tidy(map) };
   const swap = lost.length === 1 && old ? { ...keep, map: tidy({ ...map, [lost[0].id]: old }) } : null;
@@ -632,8 +634,8 @@ export const padLabel = (label, family = 'generic', names = {}) => (label
 // ---- which connected device plays ---------------------------------------------------------------------------------
 // The Gamepad API lists more than controllers: on Windows a USB microphone or headset with its own buttons (a player's
 // "DGM20 USB Microphone", issue #2) shows up as a gamepad too – often before the real one, which then never got to
-// play. So souldew picks the controller itself: the one chosen in Settings › Controller (config.pads.device, the id
-// the browser reports, remembered across starts) when it is connected, else the most controller-like device. A device
+// play. So souldew picks the controller itself: the one chosen in Settings › Controller when it is connected,
+// else the most controller-like device. A device
 // that doesn't look like a controller at all is never picked on its own – only when the player chooses it.
 
 /** Names of devices that are no controllers (audio, cameras, keyboards, mice …) – unless they report a standard layout. */
@@ -661,15 +663,21 @@ export function padScore(p) {
 
 export const looksLikePad = (p) => padScore(p) >= 0;
 
+/** The browser can give two controllers the same id (e.g. Xbox-compatible receivers on Windows). */
+export function preferredPad(pads, settings) {
+  const key = padKey(settings?.device);
+  const index = settings?.deviceIndex;
+  if (!key) return undefined;
+  return pads.find((p) => p && p.connected !== false && padKey(p.id) === key && (index == null || p.index === index));
+}
+
 /**
- * The connected device that plays: the remembered one (`wanted` = config.pads.device) if it is there – the player
- * chose it, whatever it looks like – else the most controller-like one (the lowest index among equals), or null when
- * nothing connected looks like a controller.
+ * The remembered device if connected, then the most controller-like one (lowest index among equals), or null.
+ * An index is saved only when the id alone could refer to more than one controller.
  */
-export function pickPad(pads, wanted = null) {
+export function pickPad(pads, settings) {
   const list = [...(pads || [])].filter((p) => p && p.connected !== false);
-  const key = wanted ? padKey(wanted) : '';
-  const mine = key && list.find((p) => padKey(p.id) === key);
+  const mine = preferredPad(list, settings);
   if (mine) return mine;
   let best = null;
   let bestScore = -1;
