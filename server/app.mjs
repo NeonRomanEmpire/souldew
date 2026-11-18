@@ -12,7 +12,7 @@ import { detectJava, uprStatus, installUpr, runBridge, inspectRom } from './lib/
 import { preparePatchedRom, KNOWN_PATCHES } from './lib/roms.mjs';
 import { ROM_EXTENSIONS, PATCH_EXTENSIONS, isCtrExt, matchCatalog } from '../shared/romid.mjs';
 import { ALL_SLOTS, slotsOf, runMode } from '../shared/slots.mjs';
-import { scanLibrary, catalog, loadFile, importFiles, removeStaleParts, uploadTarget, resolveId, discoverRoms, approvedFolder, placeUploadedZip, unpackLibraryZip, MAX_CTR_BYTES, setRomHack } from './lib/library.mjs';
+import { scanLibrary, catalog, loadFile, importFiles, removeStaleParts, uploadTarget, resolveId, discoverRoms, approvedFolder, placeUploadedZip, unpackLibraryZip, MAX_CTR_BYTES, setRomHack, removeCtrUpdate } from './lib/library.mjs';
 import { freeBytes } from './lib/zip.mjs';
 import { saveCover, deleteCover, coverFile, customCovers, coverUrl, COVER_LIMIT } from './lib/covers.mjs';
 import { inspectCtr, ncchSizeOf } from './lib/ctrrando.mjs';
@@ -26,7 +26,9 @@ import { SaveWatcher, saveParser, isHgssGame } from './lib/savewatch.mjs';
 import { EMULATORS, detectEmulator, installEmulator, launchRom, revealInFileManager, emulatorRunning, melonConfigFiles, melonSaveDirs } from './lib/emulator.mjs';
 import { LiveBridge } from './lib/livebridge.mjs';
 import { AzaharBridge, enableRpc } from './lib/azahar.mjs';
-import { CtrSessions, ctrTools, saveStamp, ctrInventory, redactHome, ctrEncrypted, ctrFileReport } from './lib/ctr.mjs';
+import { CtrSessions, ctrTools, saveStamp, ctrInventory, redactHome, ctrEncrypted, ctrFileReport, saveDirFor } from './lib/ctr.mjs';
+import { prepareUpdate, updateStamp } from './lib/ctrupdate.mjs';
+import { pickUpdate } from '../shared/ctr/update.mjs';
 import { pickRenderer, validRenderer, gpuKey, remember, validScale, scaleFor } from './lib/ctrrenderer.mjs';
 import { NativeSessions, nativeTools, NATIVE_CORES } from './lib/native.mjs';
 import { moveToGraveyard, parseHgssSave } from '../shared/gen4save.mjs';
@@ -1027,6 +1029,13 @@ export function startServer({ port = 7373, host = '127.0.0.1', background = true
     saveConfig({ romHacks });
     return { romHacks };
   });
+  // a 3DS game's update taken off it (library.mjs removeCtrUpdate): souldew's copy deleted, or the player's own file marked
+  route('POST', /^\/api\/library\/ctr-update\/remove$/, async (req) => {
+    const { id } = await readBody(req);
+    const { deleted, ctrUpdatesDetached } = removeCtrUpdate(id, loadConfig());
+    saveConfig({ ctrUpdatesDetached });
+    return { removed: true, deleted };
+  });
   // Search this Mac / PC for ROMs (the usual folders) – the import below then copies the ones the player picked.
   route('POST', /^\/api\/library\/discover$/, () => discoverRoms({ known: scanLibrary(loadConfig()).roms }));
   route('POST', /^\/api\/library\/upload$/, async (req, m, url) => {
@@ -1576,9 +1585,33 @@ export function startServer({ port = 7373, host = '127.0.0.1', background = true
     const { mode, auto } = ctrRendererNow(cfg);
     // the resolution: Settings › Emulators › "3DS resolution" unless the page asks for one (tests, diagnostics)
     const sc = scaleFor(Number.isInteger(scale) ? scale : cfg.ctrScale, mode);
-    const id = ctr.start({ rom: romPath, key, tools, scale: sc, renderer: mode, auto, file });
-    return { id, liveMemory: tools.souldewCore, renderer: mode, auto, scale: sc };
+    // the game's update (server/lib/ctrupdate.mjs): the one the library has for it goes onto this save folder's SD card,
+    // where the core finds it – a randomized run's game never gets it (the update's code would undo the randomization)
+    ctr.stop(); // (the game that runs now may play from the same save folder)
+    const update = file.kind === 'game' ? await ctrUpdateFor(rom, file.titleId, key) : null;
+    const id = ctr.start({ rom: romPath, key, tools, scale: sc, renderer: mode, auto, file: update ? { ...file, update } : file });
+    return { id, liveMemory: tools.souldewCore, renderer: mode, auto, scale: sc, update };
   });
+  /** The update a 3DS game starts with (prepareUpdate): from the library – none for a randomized run's game. */
+  const ctrUpdateFor = async (rom, titleId, key) => {
+    let randomized = false;
+    try {
+      const run = new URL(String(rom || ''), 'http://localhost').pathname.match(/^\/api\/runs\/([a-f0-9]{8})\/file$/);
+      randomized = !!(run && readManifest(run[1])?.randomizer?.enabled);
+    } catch {
+      // (romPathFromUrl accepted it already)
+    }
+    const lib = scanLibrary(loadConfig());
+    const keep = [];
+    for (const u of lib.ctrUpdates || []) {
+      try {
+        keep.push(updateStamp(u.file));
+      } catch {
+        // gone meanwhile
+      }
+    }
+    return prepareUpdate({ saveDir: saveDirFor(key), gameTid: titleId, update: pickUpdate(lib.ctrUpdates, titleId), randomized, keep });
+  };
   // the game's own saves changed? (a fingerprint – see saveStamp)
   route('GET', /^\/api\/ctr\/savestamp$/, (req, m, url) => ({ stamp: saveStamp(ctr.get(url.searchParams.get('id')).save) }));
   route('POST', /^\/api\/ctr\/stop$/, async (req) => {

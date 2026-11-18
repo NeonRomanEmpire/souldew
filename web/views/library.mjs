@@ -11,6 +11,7 @@ import { FirstSteps } from './firststeps.mjs';
 import { IS_MAC, IS_WIN, shortPath } from '../lib/platform.mjs';
 import { addedToLibrary, addedMessage, unpackToast } from '../lib/libadded.mjs';
 import { patchTitle } from '/shared/patchname.mjs';
+import { updateVersionLabel } from '../lib/ctrupdate.mjs';
 
 const SYS = { gb: 'GB', gbc: 'GBC', gba: 'GBA', nds: 'DS', '3ds': '3DS' };
 
@@ -667,6 +668,8 @@ function GameDetail({ id, onClose, openHack }) {
           ${rom && html`<${ReadsLine} src=${`/api/library/rom?id=${encodeURIComponent(rom.id)}`} gameId=${g.id} />`}
           <dt>${t('lib.yourRom', 'Your ROM')}</dt><dd>${rom ? html`<span class="mono small">${rom.name}</span> ${rom.exact ? html`<span class="chip ok">${t('lib.verified', 'verified dump')}</span>` : ''}
             <${RomHackAction} rom=${rom} onLinked=${openHack} />` : html`<span class="muted">${t('lib.notOwned', 'Not in your library')}</span>`}</dd>
+          ${g.system === '3ds' && html`<${CtrUpdateFacts} rom=${rom} randomizable=${!!g.uprSupported}
+            waiting=${rom ? null : (library?.ctrUpdates || []).filter((u) => !u.detached && u.gameId === id).sort((a, b) => Number(a.encrypted) - Number(b.encrypted) || (b.version || 0) - (a.version || 0))[0] || null} />`}
           ${copies.length > 1 && html`<dt>${t('lib.otherCopies', 'Other copies')}</dt><dd class="stack">${copies.slice(1).map((r) => html`<div key=${r.id}>
             <span class="mono small">${r.name}</span> ${r.exact ? html`<span class="chip ok">${t('lib.verified', 'verified dump')}</span>` : ''}
             <${RomHackAction} rom=${r} onLinked=${openHack} /></div>`)}</dd>`}
@@ -693,6 +696,37 @@ function GameDetail({ id, onClose, openHack }) {
       })}
     </div>`}
   <//>`;
+}
+
+/**
+ * A 3DS game's update (server/lib/library.mjs: rom.update – or, while the game isn't in the library yet, the update
+ * file waiting for it): which one souldew's player starts the game with, and "Remove". `randomizable`: the game's runs
+ * can be randomized (those start without the update – server/lib/ctrupdate.mjs).
+ */
+function CtrUpdateFacts({ rom, waiting = null, randomizable = false }) {
+  const { reloadLibrary, toast } = useApp();
+  const [busy, setBusy] = useState(false);
+  const u = rom ? rom.update : waiting;
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await api.post('/api/library/ctr-update/remove', { id: u.id });
+      await reloadLibrary();
+      toast({ kind: 'ok', title: t('ctrUpdate.removed', 'Update removed'), text: t('ctrUpdate.removedText', 'souldew’s player starts the game without it now.') });
+    } catch (e) {
+      toast({ kind: 'death', title: t('ctrUpdate.removeFailed', 'Couldn’t remove the update'), text: e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const state = !u ? null : u.encrypted ? t('ctrUpdate.encrypted', 'encrypted – souldew can’t use it, it needs a decrypted copy')
+    : !rom ? t('ctrUpdate.waiting', 'used as soon as you add the game') : t('ctrUpdate.installed', 'installed – souldew’s player starts the game with it');
+  return html`<dt>${t('ctrUpdate.label', 'Update')}</dt><dd>${u
+    ? html`<div><span class="mono small">${updateVersionLabel(u)}</span> <span class=${`chip ${u.encrypted ? 'bad' : rom ? 'ok' : ''}`}>${state}</span>
+        <button class="btn small ghost" disabled=${busy} onClick=${remove}><${Icon} name="close" size=${14} />${t('ctrUpdate.remove', 'Remove')}</button></div>
+      <div class="tiny faint">${[u.name, !u.encrypted && u.tracking === 'older' && t('ctrUpdate.older', 'An older update – live tracking knows version 1.0 and the latest update of this game.'),
+        !u.encrypted && randomizable && t('ctrUpdate.notRandomized', 'Randomized runs start without it (the randomizer builds the game from version 1.0).')].filter(Boolean).join(' · ')}</div>`
+    : html`<span class="muted">${t('ctrUpdate.none', 'None. To play the updated game, add its update file (.cia) to your library, like a game.')}</span>`}</dd>`;
 }
 
 /**
@@ -915,7 +949,8 @@ function RomDetail({ id, onClose, openHack }) {
           <dt>${t('lib.system', 'System')}</dt><dd>${SYS[r.system] || r.system}</dd>
           <dt>${t('lib.code', 'Game code')}</dt><dd class="mono">${r.code || '–'}</dd>
           ${r.system === '3ds'
-            ? html`<dt>${t('lib.titleId', 'Title ID')}</dt><dd class="mono">${r.titleId || '–'}</dd>`
+            ? html`<dt>${t('lib.titleId', 'Title ID')}</dt><dd class="mono">${r.titleId || '–'}</dd>
+              ${r.kind === 'game' && html`<${CtrUpdateFacts} rom=${r} />`}`
             : html`<dt>CRC32</dt><dd class="mono">${r.crc}</dd>`}
           <${ReadsLine} src=${`/api/library/rom?id=${encodeURIComponent(r.id)}`} />
         </dl>

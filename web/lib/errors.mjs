@@ -70,6 +70,7 @@ const TEXTS = {
   ctrEncrypted: () => t('err.ctrEncrypted', 'This 3DS game file is encrypted. souldew and Azahar only play decrypted games, and the randomizer needs a decrypted copy too (.3ds, .cci or .cxi) – souldew doesn’t decrypt games. Dump your cartridge decrypted (for example with GodMode9 on your 3DS) and add that file.'),
   ctrIncomplete: () => t('err.ctrIncomplete', 'This 3DS game file is incomplete – part of the game is missing, so it would only show a black screen. This happens when copying it was interrupted (souldew or the computer closed meanwhile) or a download stopped. Remove it from the library and add the game again.'),
   notCtr: () => t('err.notCtr', 'Not a Nintendo 3DS game'),
+  notCtrUpdate: () => t('err.notCtrUpdate', 'Not a 3DS game update'),
   ctrNoSpace: (v) => t('err.ctrNoSpace', 'Not enough disk space: the randomized 3DS games need about {need} GB, {free} GB are free.', v),
   ctrMemory: () => t('err.ctrMemory', 'Not enough memory for the 3DS randomizer (it needs up to 4.5 GB). Close other programs and try again.'),
   ctrTimeout: () => t('err.ctrTimeout', 'The 3DS randomizer took too long and was stopped. Try again – a fast drive helps.'),
