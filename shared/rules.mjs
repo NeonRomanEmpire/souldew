@@ -15,7 +15,7 @@ export const DEFAULT_RULES = {
   autoAssign: true,
   autoDeath: true,
   sounds: true,
-  cheats: false, // the play screen's cheats (Rare Candies) – off until the run allows them; every use goes to the log
+  cheats: false, // the play screen's cheats (Rare Candies, Max Repels) – off until the run allows them; every use goes to the log
   // the battle helper's type matchups (move effectiveness, what hits you, weaknesses) in the play view. The host
   // sets it when creating the run; runs from before it have no `typeHelp` and keep the help (true).
   typeHelp: true,

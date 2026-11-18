@@ -2,6 +2,15 @@
 
 `npm run release` takes the release notes from the section of the version being released.
 
+## 2.8.3
+
+- **A second cheat: Max Repels** (thanks to a player on Discord). The cheats menu in the play screen now has “Add 10
+  Max Repels” under “Add 99 Rare Candies” – ten Max Repels into the Items pocket of your bag, up to the game's own
+  limit per stack (99, or 999 from Diamond/Pearl on), in every game where the Rare Candies work. Like the Rare
+  Candies, it asks first, works only outside of battles once live tracking has found your team, only when the run's
+  rules allow cheats (in a SoulLink the host decides), and every use shows up in the log for everyone, for example
+  “used a cheat: 10 Max Repels”. Using it also counts against the “Honest Work” trophy.
+
 ## 2.8.2
 
 - **Every shortcut can be changed – and any key can be a game button** (thanks to a player on Discord). Keys like R

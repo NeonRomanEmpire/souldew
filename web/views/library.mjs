@@ -746,9 +746,9 @@ const liveLabel = (v) => ({
   no: t('lib.liveNo', 'Not supported – enter catches by hand'),
 }[v] || '–');
 const liveNote = (k) => ({
-  cfru: t('lib.liveNote.cfru', 'Team, place, battles and catches are read live, held items by the names the game gives them, types and matchups from the ROM. No level cap is shown – the hack’s leaders can’t be told apart with confidence – and the Rare Candy cheat is off.'),
-  rnb: t('lib.liveNote.rnb', 'Team, place, battles and catches are read live. The Rare Candy cheat is off and held items aren’t named – the hack numbers its items its own way.'),
-  types: t('lib.liveNote.types', 'Team, place, battles and catches are read live, the hack’s own types and their matchups from the ROM. The Rare Candy cheat is off.'),
+  cfru: t('lib.liveNote.cfru', 'Team, place, battles and catches are read live, held items by the names the game gives them, types and matchups from the ROM. No level cap is shown – the hack’s leaders can’t be told apart with confidence – and the cheats are off.'),
+  rnb: t('lib.liveNote.rnb', 'Team, place, battles and catches are read live. The cheats are off and held items aren’t named – the hack numbers its items its own way.'),
+  types: t('lib.liveNote.types', 'Team, place, battles and catches are read live, the hack’s own types and their matchups from the ROM. The cheats are off.'),
 }[k] || '');
 
 function HackDetail({ id, onClose, openGame }) {
