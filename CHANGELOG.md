@@ -4,6 +4,24 @@
 
 ## 2.8.3
 
+- **Nothing counts before your first Poké Balls** (thanks to players on Discord). Most Nuzlocke rules only start once
+  you can catch – and many attempts ended in the very first rival battle, before there was a single Poké Ball (in Omega
+  Ruby and Alpha Sapphire you only get them after the battle with May or Brendan). New runs now have the rule “Nothing
+  counts before your first Poké Balls” on (Nuzlocke and SoulLink, switchable in the wizard and in the rules; in a
+  SoulLink the host decides): until souldew sees Poké Balls in your bag – or your first catch, in games where it can't
+  read the bag – a Pokémon that is knocked out doesn't die, a blackout doesn't end the run, it costs no life and no area
+  is used up, so you can reset or just play on. The play screen says so in a small note, and once the balls are there
+  the log says “Rules start now – first Poké Balls”. In a SoulLink it goes by each player's own bag; when a partner whose
+  rules have started loses a Pokémon, the linked one still dies with it. A SoulLink with the rule needs souldew 2.8.3 for
+  every player – older versions are asked to update when they join. Runs you already have keep counting from the start.
+- **Deaths show when the game shows them** (thanks to a player on Discord). souldew used to know a Pokémon was gone the
+  moment its HP hit 0 in memory – while the game was still draining the HP bar – and showed the death, the sound and
+  “the run is over” before you had seen it happen. Now the death notice, the sounds, the end-of-run screen, your
+  partners' notice and log, the stream overlay and Discord all wait until the game has shown it: until your next Pokémon
+  is out or the battle is over, or until the time the game takes for its HP bar and message – shorter while
+  fast-forwarding, next to nothing at Max. Your team and the battle help keep showing the HP you last saw meanwhile.
+  The death still counts from the moment it happens: resetting, loading a state or closing the game doesn't undo it.
+
 - **A second cheat: Max Repels** (thanks to a player on Discord). The cheats menu in the play screen now has “Add 10
   Max Repels” under “Add 99 Rare Candies” – ten Max Repels into the Items pocket of your bag, up to the game's own
   limit per stack (99, or 999 from Diamond/Pearl on), in every game where the Rare Candies work. Like the Rare

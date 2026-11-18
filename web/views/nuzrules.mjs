@@ -1,7 +1,7 @@
 // The rule editors – one set of rules, texts and options for both places that edit them: the new-run wizard (variant
 // 'wizard': compact) and the board's Rules tab (variant 'board': grouped panels, every toggle always visible).
 // Solo Nuzlocke: NuzlockeRules (presets; in the wizard the toggles only for "Custom"). SoulLink: SoulLinkRules (no
-// presets – every rule shown), SoulLinkAuto, and the shared TypeHelpRule and LivesRule; the host sets them all
+// presets – every rule shown), SoulLinkAuto, and the shared TypeHelpRule, LivesRule and BallsRule; the host sets them all
 // (shared/hostrules.mjs), the others see them read-only (`disabled`).
 import { html, useState } from '/vendor/htm-preact.mjs';
 import { t } from '../lib/i18n.mjs';
@@ -172,6 +172,20 @@ export function TypeHelpRule({ value, onChange, locked, hostName, solo, note = t
       ${locked && note && html`<span class="hint host-only">${hostName ? t('rules.hostOnlyName', 'Only {name} can change this (host).', { name: hostName }) : t('rules.hostOnly', 'Only the host can change this.')}</span>`}</span></label>`;
 }
 
+/**
+ * "Nothing counts before your first Poké Balls" (lib/run.mjs beforeBalls) – for every run, set when it is created (on
+ * for a new one) and on the board by whoever sets the rules. value: rules.startAtBalls; players: how many play.
+ */
+export function BallsRule({ value, onChange, players: n = 1, disabled = false }) {
+  const hint = n < 2
+    ? t('rules.ballsHintSolo', 'Until you have Poké Balls in your bag, a Pokémon that faints doesn’t die, a blackout doesn’t end the run and no area is used up – reset or play on. The rules start the moment souldew sees your first Poké Balls (or your first catch).')
+    : n > 2
+      ? t('rules.ballsHintGroup', 'Each of you starts with your own first Poké Balls: until then your Pokémon don’t die, a blackout doesn’t end the run and no area is used up. When someone whose rules have started loses a Pokémon, the linked ones still die with it. Everyone needs souldew 2.8.3 or newer.')
+      : t('rules.ballsHint', 'Each of you starts with your own first Poké Balls: until then your Pokémon don’t die, a blackout doesn’t end the run and no area is used up. When your partner’s rules have started and they lose a Pokémon, yours still dies with it. Both of you need souldew 2.8.3 or newer.');
+  return html`<${RuleCheck} checked=${!!value} onChange=${(v) => !disabled && onChange(v)} disabled=${disabled}
+    label=${t('rules.balls', 'Nothing counts before your first Poké Balls')} hint=${hint} />`;
+}
+
 /** What the lives rule does, for 1 (solo), 2 or 3–4 players and the chosen pool – one text for the wizard and the board. */
 function livesHint(players, pool) {
   if (players < 2) return t('lives.hintSolo', 'Every death costs a life – also one you mark by hand, and a bonus Pokémon. The death that takes the last life ends the run; undoing a death gives its life back.');
@@ -335,6 +349,7 @@ export function RulesSummary({ rules: r, players: n = 2 }) {
     [t('rules.sumCheats', 'Cheats (Rare Candies, Max Repels)'), r.cheats ? t('rules.sumAllowed', 'Allowed') : t('rules.off', 'Off')],
     [t('lives.title', 'Lives'), lives],
     [t('rules.sumTypeHelp', 'Type matchup help'), on(r.typeHelp !== false)],
+    [t('rules.sumBalls', 'Nothing counts before the first Poké Balls'), on(!!r.startAtBalls)],
   ];
   return html`<dl class="rule-summary">${rows.map(([k, v]) => html`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl>`;
 }

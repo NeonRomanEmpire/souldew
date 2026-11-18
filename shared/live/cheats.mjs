@@ -465,3 +465,73 @@ export function addItem(entry, mem, state, item, count = 1, { pocket = null, all
   const key = L.kind === 'gba' ? bag.q(0) : 0; // q(0) = the key's low half (0 in Ruby/Sapphire)
   return slotAdd(bag, mem, item, count, L.kind === 'ds' ? 999 : 99, (v) => (v ^ key) & 0xffff);
 }
+
+// ---------------------------------------------------------------------------
+// Poké Balls in the bag – the run rule "nothing counts before your first Poké Balls" (web/lib/run.mjs beforeBalls)
+// starts the moment the player has one. Read with the same bag layouts and checks as the cheats.
+
+/**
+ * The ball items per generation (pret item constants, PKHeX): Gen 1 Master/Ultra/Great/Poké Ball 1–4 and the Safari
+ * Ball 8 – one bag for everything; Gen 2 has a pocket of its own (anything in it is a ball); Gen 3 the Poké Ball pocket
+ * (ids 1–12); Gen 4 its Poké Ball pocket; Gen 5–7 keep the balls with the items: 1–16, the Apricorn balls 492–500 (from
+ * HeartGold/SoulSilver on), the Dream Ball 576 and the Beast Ball 851.
+ */
+const BALLS_GB1 = new Set([1, 2, 3, 4, 8]);
+const isBall567 = (id) => (id >= 1 && id <= 16) || (id >= 492 && id <= 500) || id === 576 || id === 851;
+
+/**
+ * How many Poké Balls (of any kind) the player carries – or null when the bag can't be read right now (a game without
+ * a known bag layout, a ROM hack on an expanded engine, the DS bag before live tracking found the save data, a read
+ * that doesn't look like a bag). 0 is a bag read with no ball in it. `entry`, `read`, `state` as for addItem.
+ */
+export function readBalls(entry, read, state = null) {
+  const L = layoutOf(entry);
+  if (!L) return null;
+  if (L.kind === 'gb') {
+    if (entry.gen === 1) {
+      const bag = gbBag(L, 1, read);
+      if (!bag) return null;
+      let n = 0;
+      for (let i = 0; i < bag.n; i++) if (BALLS_GB1.has(bag.bytes[1 + i * 2])) n += bag.bytes[2 + i * 2];
+      return n;
+    }
+    // Gen 2: the bag must read as a bag (items, key items), then the ball pocket behind the key items
+    if (!gbBag(L, 2, read)) return null;
+    const bag = gbBag({ ...L, addr: L.keyItems + 27, keyItems: null }, 2, read);
+    if (!bag) return null;
+    let n = 0;
+    for (let i = 0; i < bag.n; i++) n += bag.bytes[2 + i * 2];
+    return n;
+  }
+  if (L.kind === 'ctr') {
+    for (const base of ctrBags(entry, state)) {
+      const bag = ctrBagAt(L, base, read, 'items');
+      if (!bag) continue;
+      let n = 0;
+      for (let i = 0; i < bag.slots; i++) {
+        const v = bag.slot(i);
+        if (isBall567(bag.idOf(v))) n += bag.countOf(v);
+      }
+      return n;
+    }
+    return null;
+  }
+  if (L.kind === 'gba') {
+    const G = L.found ? (state?.sb1PtrAddr ? { ...L, sb1Ptr: state.sb1PtrAddr, sb2Ptr: state.sb1PtrAddr + 4 } : null) : L;
+    const bag = G && gbaBag(G, read, 'balls');
+    if (!bag) return null;
+    let n = 0;
+    for (let i = 0; i < bag.slots; i++) if (u16le(bag.bytes, i * 4)) n += bag.q(u16le(bag.bytes, i * 4 + 2));
+    return n;
+  }
+  // Gen 4: the Poké Ball pocket (a fresh game's bag is empty – accepted where the save data came from its pointer);
+  // Gen 5: the balls among the items
+  const bag = dsBag(L, entry, read, state, L.pockets.balls ? 'balls' : 'items', !!state?.saveBase);
+  if (!bag) return null;
+  let n = 0;
+  for (let i = 0; i < bag.slots; i++) {
+    const id = u16le(bag.bytes, i * 4);
+    if (id && (L.gen === 4 || isBall567(id))) n += u16le(bag.bytes, i * 4 + 2);
+  }
+  return n;
+}

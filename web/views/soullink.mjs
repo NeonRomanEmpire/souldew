@@ -14,10 +14,11 @@ import { numberedName, baseRomsFor, needsIdenticalRom, pairJoin, joinGameId } fr
 import { pairMate } from '/shared/pair-titles.mjs';
 import { ALL_SLOTS, slotsOf, runMode, othersOf, defaultRunName } from '/shared/slots.mjs';
 import { NUZLOCKE_RULES, joinNames, shinyNote } from '../lib/run.mjs';
+import { NEW_RUN_RULES } from '/shared/rules.mjs';
 import { suggestSlot } from '../lib/invitecode.mjs';
 import { Board, InviteBody } from './board.mjs';
 import { JoinCode } from './invitecode.mjs';
-import { NuzlockeRules, TypeHelpRule, LivesRule, SoulLinkRules, SoulLinkAuto, RulesSummary } from './nuzrules.mjs';
+import { NuzlockeRules, TypeHelpRule, LivesRule, SoulLinkRules, SoulLinkAuto, RulesSummary, BallsRule } from './nuzrules.mjs';
 import { soulLinkRulesFrom, hostSlotOf } from '/shared/hostrules.mjs';
 import { rulesWithDefaults } from '/shared/rules.mjs';
 import { FirstSteps } from './firststeps.mjs';
@@ -597,6 +598,8 @@ function NewRun({ gameId, hackId, patchPick, romPick, from, mode: sectionMode })
   const [nzRules, setNzRules] = useState(() => (from && runMode(from) === 'nuzlocke' && from.rules ? { ...NUZLOCKE_RULES, ...from.rules } : { ...NUZLOCKE_RULES }));
   // the battle helper's type matchups (a restart keeps the old run's choice)
   const [typeHelp, setTypeHelp] = useState(() => from?.rules?.typeHelp !== false);
+  // nothing counts before the first Poké Balls – on for a new run (a restart keeps an old run's "off")
+  const [startAtBalls, setStartAtBalls] = useState(() => (typeof from?.rules?.startAtBalls === 'boolean' ? from.rules.startAtBalls : NEW_RUN_RULES.startAtBalls));
   // the lives rule (off unless switched on; a restart keeps the old run's lives)
   const [lives, setLives] = useState(() => ({ lives: from?.rules?.lives > 0 ? from.rules.lives : 0, livesPool: from?.rules?.livesPool === 'player' ? 'player' : 'shared' }));
   // a SoulLink's rules – every one of them, the host's call for everyone (shared/hostrules.mjs); a new attempt starts
@@ -694,7 +697,7 @@ function NewRun({ gameId, hackId, patchPick, romPick, from, mode: sectionMode })
         gameId: game?.variantOf || game?.id || null, gameTitle: hack?.name || customHack || (game ? gameTitle(game) : rom.title), hackId: hack?.id || null,
         hackName: !hack && customHack ? customHack : undefined,
         name: numberedName(defaultRunName(players, mode), status?.runs),
-        rules: solo ? { ...nzRules, ...lives, typeHelp } : slRules,
+        rules: solo ? { ...nzRules, ...lives, typeHelp, startAtBalls } : slRules,
         shiny,
         ...(intro && fromIntro ? { introSave: true, introSlot: 'p1' } : {}),
       });
@@ -837,11 +840,13 @@ function NewRun({ gameId, hackId, patchPick, romPick, from, mode: sectionMode })
       <h2>${t('new.stepRules', '{n} · Rules', { n: step.rules })}</h2>
       ${solo ? html`<p class="small muted">${t('new.rulesHint', 'You can change them later on the board (Rules tab).')}</p>
         <${NuzlockeRules} variant="wizard" value=${nzRules} onChange=${(patch) => setNzRules((v) => ({ ...v, ...patch }))} />
+        <div class="rule-sep"><${BallsRule} value=${startAtBalls} players=${1} onChange=${setStartAtBalls} /></div>
         <div class="rule-sep"><${TypeHelpRule} value=${typeHelp} solo=${true} onChange=${setTypeHelp} /></div>
         <div class="rule-sep"><${LivesRule} variant="wizard" value=${lives.lives} pool=${lives.livesPool} players=${1} onChange=${(patch) => setLives((v) => ({ ...v, ...patch }))} /></div>`
         : html`<p class="small muted">${count > 2 ? t('new.rulesHostGroup', 'You’re the host: these rules apply to all of you, and only you can change them later (board › Rules). Every change shows up in the log for everyone.')
           : t('new.rulesHost', 'You’re the host: these rules apply to both of you, and only you can change them later (board › Rules). Every change shows up in the log for both of you.')}</p>
         <${SoulLinkRules} variant="wizard" value=${slRules} onChange=${patchSl} players=${count} />
+        <div class="rule-sep"><${BallsRule} value=${slRules.startAtBalls} players=${count} onChange=${(v) => patchSl({ startAtBalls: v })} /></div>
         <div class="rule-sep"><${TypeHelpRule} value=${slRules.typeHelp} onChange=${(v) => patchSl({ typeHelp: v })} /></div>
         <div class="rule-sep"><${LivesRule} variant="wizard" value=${slRules.lives} pool=${slRules.livesPool} players=${count} onChange=${patchSl} /></div>
         <div class="rule-sep stack-s"><b class="small">${t('rules.auto', 'Automatic')}</b><${SoulLinkAuto} value=${slRules} onChange=${patchSl} players=${count} /></div>`}

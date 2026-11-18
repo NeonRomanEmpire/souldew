@@ -307,7 +307,7 @@ function missedMsg(doc, manifest, area, species) {
  * (the opponent of the battle it fell in), `place` {gen, id, name} (the place sign where it fell – the share card
  * shows it). The boss segment it died in is kept for the stats. In a deathless Nuzlocke the first death ends the run.
  */
-export function markDead(doc, manifest, area, { slot, cause = '', level = null, killer = null, place = null } = {}) {
+export function markDead(doc, manifest, area, { slot, cause = '', level = null, killer = null, place = null, feedId = undefined } = {}) {
   const p = doc.get(`pair:${area}`) || {};
   if (p.state === 'dead') return false;
   const segment = levelCap(doc, manifest, slot || 'p1').boss?.key ?? null;
@@ -317,7 +317,7 @@ export function markDead(doc, manifest, area, { slot, cause = '', level = null, 
   const text = n === 1 ? msg('feed.deathSolo', '{area}: the Pokémon died', { area: { area } })
     : n > 2 ? msg('feed.deathGroup', '{area}: the linked group died', { area: { area } })
       : msg('feed.death', '{area}: the pair died', { area: { area } });
-  feedMsg(doc, manifest, { type: 'death', slot, area, msg: text, cause: cause || null });
+  feedMsg(doc, manifest, { type: 'death', slot, area, msg: text, cause: cause || null }, feedId);
   if (runMode(manifest) === 'nuzlocke' && rules(doc, manifest).deathless) failRun(doc, manifest, slot || 'p1', 'deathless', { area });
   spendLife(doc, manifest, slot, { area });
   return true;
@@ -499,6 +499,7 @@ const switchLabels = (n) => ({
   autoAssign: msg('rules.autoAssign', 'Enter new catches automatically'),
   autoDeath: n > 2 ? msg('rules.autoDeathGroup', 'A linked Pokémon that faints (live) kills its whole group automatically')
     : msg('rules.autoDeath', 'A linked Pokémon that faints (live) kills the pair automatically'),
+  startAtBalls: msg('rules.balls', 'Nothing counts before your first Poké Balls'),
 });
 
 /** A SoulLink's choices (n players): their label and the label of each value, for the log – the board's texts. */
@@ -543,6 +544,28 @@ export function markMissed(doc, manifest, area, slot, { species = null, by } = {
   return true;
 }
 
+/**
+ * "Nothing counts before your first Poké Balls" (rules.startAtBalls) – does it still hold for `slot`? Each player goes
+ * by their own bag: `balls:<slot>` ({ at, how: 'bag' | 'catch', down?: [key] }) marks when their rules started. While it
+ * holds, that player's Pokémon don't die, a whiteout doesn't end the run (or cost a life) and no encounter is spent.
+ * In a SoulLink the link still works the other way: a partner whose rules have started loses a Pokémon – its whole
+ * group dies, this player's linked one too (that death counts: it is the partner's).
+ */
+export const beforeBalls = (doc, manifest, slot) => !!doc && !!rules(doc, manifest).startAtBalls && !doc.get(`balls:${slot}`, null);
+
+/**
+ * `slot`'s rules start now: souldew saw Poké Balls in their bag (`how` 'bag'), or – where it can't read the bag – they
+ * caught a Pokémon ('catch'). Logged once per player (a fixed log id – two computers write one line). `down`: the keys
+ * of their Pokémon at 0 HP right now – knocked out before the rules started, they only die once they were healed and
+ * go down again. false when the rule doesn't hold (any more) for `slot`.
+ */
+export function startRules(doc, manifest, slot, how = 'bag', down = []) {
+  if (!beforeBalls(doc, manifest, slot)) return false;
+  doc.set(`balls:${slot}`, { at: Date.now(), how: how === 'catch' ? 'catch' : 'bag', ...(down.length ? { down: down.slice(0, 6) } : {}) });
+  feedMsg(doc, manifest, { type: 'rule', slot, msg: msg('feed.ballsStart', 'Rules start now – first Poké Balls') }, `balls-${slot}`);
+  return true;
+}
+
 /** Areas (progression entries) where `slot` has no encounter yet. */
 export function openAreas(doc, manifest, slot = 'p1') {
   return progression(doc, manifest).filter((a) => a.kind === 'area' && !encounter(doc, a.key, slot));
@@ -562,6 +585,7 @@ export function openAreas(doc, manifest, slot = 'p1') {
  */
 export function missedQuestion(doc, manifest, rd, slot, { foe, wild, from = 0, newMonAt = 0, boxes = true, partySize = 0, here = null } = {}) {
   if (!manifest || doc.get('run:status', null) || !wild || !foe?.species) return false;
+  if (beforeBalls(doc, manifest, slot)) return false; // (no first encounter is spent before the first Poké Balls)
   if (newMonAt >= from || (!boxes && partySize >= 6)) return false;
   if (foe.shiny && rules(doc, manifest).shinyClause) return false;
   if (dupeOf(doc, manifest, rd, foe.species, slot)) return false;
@@ -589,7 +613,9 @@ export function lastWildAt(doc, manifest, gen, area, slot) {
  */
 export function blackout(doc, manifest, slot = 'p1') {
   const mode = rules(doc, manifest).blackout;
-  const resumed = doc.get('run:resumed', 0) || 0;
+  // (a whiteout before the first Poké Balls doesn't count – nor does one that began before them)
+  if (beforeBalls(doc, manifest, slot)) return false;
+  const resumed = Math.max(doc.get('run:resumed', 0) || 0, doc.get(`balls:${slot}`, null)?.at || 0);
   if (mode === 'party') {
     const l = live(doc, slot);
     const mons = (l?.party || []).filter((m) => !m.egg);
@@ -633,6 +659,8 @@ export function wipedSlot(doc, slots = ALL_SLOTS, manifest = Array.isArray(slots
   if (manifest && runMode(manifest) === 'nuzlocke') return blackout(doc, manifest, 'p1') ? 'p1' : null;
   const resumed = doc.get('run:resumed', 0) || 0;
   for (const slot of Array.isArray(slots) ? slots : slotsOf(slots)) {
+    // (before the first Poké Balls a wiped team doesn't end the run – deaths of linked Pokémon still stand)
+    if (beforeBalls(doc, manifest, slot)) continue;
     const p = live(doc, slot)?.party || [];
     const dead = (m) => m.area && pairState(doc, m.area).state === 'dead';
     if (!p.length || !p.every((m) => m.egg || dead(m) || (m.maxHp > 0 && m.hp === 0))) continue;
@@ -1064,6 +1092,44 @@ function trustLevels(doc, slot, party, known, source) {
 const partyDown = (party) => party.some((m) => !m.egg) && party.every((m) => m.egg || (m.maxHp > 0 && m.hp === 0));
 
 /**
+ * Deaths the game hasn't shown yet. A live read sees a Pokémon's HP at 0 while the game still drains its HP bar and
+ * says that it fainted – so the play view (web/lib/reveal.mjs) holds such a Pokémon until the player has seen it, and
+ * applySnapshot gets its key in `held`. Its death is recorded at once, under `held:<slot>:<area>` – with the cause, the
+ * opponent and the place of that moment (the battle may be over when it is revealed): nothing is lost when the game is
+ * closed, reset or a state is loaded meanwhile, and a death recorded is never taken back. Nothing reads these records but
+ * revealHeld: the death itself (`pair:<area>` – the notice, the sound, the log, the partners' apps, older ones too, the
+ * stream overlay and API, Discord) is written only when it is revealed.
+ */
+export const HELD_PREFIX = 'held:';
+/** The held record of a whiteout without a death (a Nuzlocke with "fainted means dead" off). */
+const DOWN_ONLY = '~down';
+
+/**
+ * Reveal the held deaths of `slot` (all of them, or those whose Pokémon `keep` doesn't hold any more; `olderThan`: only
+ * records at least that many ms old – an app that doesn't play `slot` reveals what its player's app left behind):
+ * each is marked dead as it was recorded, with a fixed log id, so two apps revealing it write one line. A death that
+ * came with the whole team down (`down`) ends the run like that whiteout would have – also when the player reset the
+ * game meanwhile. → { deaths: [area], failed: 'blackout'|'deathless'|'lives'|'wipe'|null }
+ */
+export function revealHeld(doc, manifest, slot, { keep = null, olderThan = 0, now = Date.now() } = {}) {
+  const out = { deaths: [], failed: null };
+  const statusBefore = doc.get('run:status', null);
+  for (const [area, h] of Object.entries(doc.scan(`${HELD_PREFIX}${slot}:`))) {
+    if (!h || (keep && h.key && keep.has(h.key)) || now - (h.at || 0) < olderThan) continue;
+    doc.set(`${HELD_PREFIX}${slot}:${area}`, null);
+    if (area !== DOWN_ONLY && markDead(doc, manifest, area, { slot, cause: h.cause || '', level: h.level ?? null, killer: h.killer || null, place: h.place || null,
+      feedId: `death-${slot}-${String(area).replace(/[^\w-]/g, '_')}-${(h.at || 0).toString(36)}` })) out.deaths.push(area);
+    if (h.down && !doc.get('run:status', null)) {
+      if (runMode(manifest) !== 'nuzlocke') failRun(doc, manifest, slot, 'wipe');
+      else if (rules(doc, manifest).blackout === 'party') failRun(doc, manifest, slot, 'blackout');
+    }
+  }
+  const st = doc.get('run:status', null);
+  if (!statusBefore && st?.state === 'failed') out.failed = st.reason || 'wipe';
+  return out;
+}
+
+/**
  * Apply a snapshot of `slot`'s game: { party: [mon], boxes: [mon]|null, badges, trainer, playTime, source }.
  * Mons are normalized: { key, species, nickname, level, hp, maxHp, status, shiny, gender, metLocation, metLevel, isEgg, inParty }.
  * `battle` (optional, the live battle right now): { kind: 'wild'|'trainer', enemy: { species, level } } – a mon
@@ -1072,7 +1138,7 @@ const partyDown = (party) => party.some((m) => !m.egg) && party.every((m) => m.e
  * snapshot ended a Nuzlocke, 'lives' when one of its deaths took the last life (any mode; SoulLinks otherwise end
  * through wipedSlot/failRun as before).
  */
-export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd = null, battle = null } = {}) {
+export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd = null, battle = null, held = null } = {}) {
   // The party is never empty once the game has started – an empty live party is the title screen, a reset or a
   // save being loaded. Applying it would wipe the team (the partner sees warnings), drop the badges to 0 and then
   // announce every badge as "newly earned" once the game is loaded again.
@@ -1127,7 +1193,7 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
   const recent = battles.get(slot);
   const fight = battle || (snap.source === 'live' && recent && Date.now() - recent.at < BATTLE_GRACE ? recent.battle : null);
   // auto-death: `m` (filed under `area`) fell – with the opponent of the battle as its cause
-  const autoDead = (area, m) => {
+  const deathOf = (area, m) => {
     const name = m.nickname || { species: m.species };
     const foe = fight?.enemy?.species ? fight.enemy : null;
     const kind = fight?.kind === 'trainer' ? msg('cause.trainer', 'trainer battle') : msg('cause.wild', 'wild battle');
@@ -1142,8 +1208,34 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
         : msg('feed.faintedBy', '{name} fainted against {enemy} (Lv. {lv}, {kind})', { name, enemy: { species: foe.species }, lv: foe.level ?? '?', kind })
       : at ? msg('feed.faintedAt', '{name} fainted ({place})', { name, place: at }) : msg('feed.faintedCause', '{name} fainted', { name });
     const killer = foe ? { species: foe.species, level: foe.level ?? null, kind: fight.kind || null } : null;
-    if (markDead(doc, manifest, area, { slot, cause, level: m.level ?? null, killer, place: where })) deaths.push(area);
+    return { cause, level: m.level ?? null, killer, place: where };
   };
+  // the play view hasn't shown this death yet (`held`): recorded now, revealed later (revealHeld); else marked dead now
+  const realDown = snap.source !== 'save' && partyDown(party.map((m) => ({ egg: m.isEgg, hp: m.hp, maxHp: m.maxHp })));
+  const autoDead = (area, m) => {
+    const hk = `${HELD_PREFIX}${slot}:${area}`;
+    if (held?.has(m.key)) {
+      if (!doc.get(hk, null) && !writes[hk]) {
+        const d = deathOf(area, m);
+        writes[hk] = { key: m.key, at: Date.now(), ...d, place: d.place ? { gen: d.place.gen ?? null, id: d.place.id ?? null, name: String(d.place.name || '').slice(0, 40) } : null, ...(realDown ? { down: true } : {}) };
+      }
+      return;
+    }
+    if (doc.get(hk, null)) return; // (recorded while held: revealed below as it was recorded)
+    if (markDead(doc, manifest, area, { slot, ...deathOf(area, m) })) deaths.push(area);
+  };
+  // "Nothing counts before your first Poké Balls": no deaths of this player's own yet; the Pokémon that were down when
+  // the rules started (`balls:<slot>`.down) die only once they were healed and go down again
+  const grace = beforeBalls(doc, manifest, slot);
+  const ballsAt = doc.get(`balls:${slot}`, null);
+  const forgiven = new Set(Array.isArray(ballsAt?.down) ? ballsAt.down : []);
+  for (const m of party) if (forgiven.has(m.key) && m.hp > 0) forgiven.delete(m.key);
+  if (ballsAt && forgiven.size !== (ballsAt.down?.length || 0)) {
+    const { down, ...rest } = ballsAt; // eslint-disable-line no-unused-vars
+    writes[`balls:${slot}`] = forgiven.size ? { ...rest, down: [...forgiven] } : rest;
+  }
+  const counts = (m) => !grace && !forgiven.has(m.key);
+  let caughtNew = false; // a new Pokémon that is no starter, egg or gift – it took a Poké Ball (the bag can't always be read)
   const autoDeath = auto && r.autoDeath && snap.source === 'live';
   const fellOnCatch = []; // new catches already at 0 HP: they die once their encounter is written
 
@@ -1163,9 +1255,9 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
       if (m.level && m.level !== k.enc.level) patch.level = m.level;
       if (m.nickname && m.nickname !== k.enc.nickname) patch.nickname = m.nickname;
       if (Object.keys(patch).length) writes[`enc:${k.area}:${slot}`] = { ...k.enc, ...patch };
-      if (m.inParty && m.hp === 0 && m.maxHp > 0 && pairState(doc, k.area).state !== 'dead') {
+      if (m.inParty && m.hp === 0 && m.maxHp > 0 && pairState(doc, k.area).state !== 'dead' && counts(m)) {
         if (autoDeath) autoDead(k.area, m);
-        else alerts.push({ type: 'fainted', area: k.area, mon: m });
+        else if (!held?.has(m.key)) alerts.push({ type: 'fainted', area: k.area, mon: m });
       }
       continue;
     }
@@ -1191,6 +1283,7 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
     // go to the inbox.
     const hatched = hatchedMon(gen, m, { wasEgg, levelOneWild: oneWild });
     const special = gen >= 4 && m.metLocation >= 2000;
+    if (snap.source === 'live' && guess !== 'starter' && !hatched && !special && m.metLocation != null && (m.metLevel ?? 1) > 0) caughtNew = true;
     if (!guess && !hatched && !special && m.metLocation !== null && m.metLocation !== undefined) guess = areaForCatch(doc, manifest, gen, m.metLocation);
     // Gen 1 and Gold/Silver keep no catch location: a Pokémon that joins within a minute of a wild battle was caught
     // where the player is – the place the sign shows (snap.here, read live like the battle)
@@ -1211,9 +1304,9 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
       known.set(m.key, { area: guess, enc });
       newCatches.push(guess);
       feedMsg(doc, manifest, { type: 'catch', slot, area: guess, species: m.species, msg: msg('feed.autoCaught', '{area}: {name} (Lv. {lv}) caught', { area: { area: guess }, name: { species: m.species }, lv: m.level || m.metLevel || '?' }) });
-      if (m.inParty && m.hp === 0 && m.maxHp > 0) {
+      if (m.inParty && m.hp === 0 && m.maxHp > 0 && counts(m)) {
         if (autoDeath) fellOnCatch.push([guess, m]);
-        else alerts.push({ type: 'fainted', area: guess, mon: m });
+        else if (!held?.has(m.key)) alerts.push({ type: 'fainted', area: guess, mon: m });
       }
     } else {
       inbox.push({ mon: m, guess, occupied: !!occupied, reason: !guess ? (hatched ? 'egg' : special ? 'special' : 'unknown') : occupied ? 'occupied' : shinyHold ? 'shiny' : dupe ? 'dupe' : 'manual',
@@ -1264,7 +1357,14 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
       }
     }
   }
-  const liveParty = party.map((m) => liveMon(m, known.get(m.key)?.area || null, wasEgg.has(m.key)));
+  // a Pokémon whose death the game hasn't shown yet keeps the HP the play view shows for it (`held` as a Map: key → HP)
+  // – the partners and the stream overlay see it go down when the player does
+  const prevHp = new Map((prevLive?.party || []).map((x) => [x.key, x.hp]));
+  const shownHp = (m) => {
+    const v = typeof held?.get === 'function' ? held.get(m.key) : undefined;
+    return Number.isFinite(v) && v > 0 ? v : prevHp.get(m.key) > 0 ? prevHp.get(m.key) : 1;
+  };
+  const liveParty = party.map((m) => liveMon(held?.has(m.key) && m.hp === 0 ? { ...m, hp: shownHp(m) } : m, known.get(m.key)?.area || null, wasEgg.has(m.key)));
   const down = snap.source !== 'save' && partyDown(liveParty);
   // the level caps read from this player's game (romcaps.mjs, sent along by the play view): kept with the run, so the
   // board, the partners and the stream API know them too
@@ -1289,12 +1389,28 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
     writes[`live:${slot}`] = { ...nextLive, at: Date.now() };
   }
   if (Object.keys(writes).length) doc.batch(writes);
+  // a whiteout the game is still showing, in a Nuzlocke whose blackout ends it without a death (fainted isn't dead
+  // there): recorded like a held death – the run ends when it is shown, even when the game was reset meanwhile
+  if (solo && !autoDeath && realDown && r.blackout === 'party' && !grace && snap.source === 'live' && !doc.get(`${HELD_PREFIX}${slot}:${DOWN_ONLY}`, null)) {
+    const k = party.find((m) => held?.has(m.key) && m.hp === 0)?.key;
+    if (k) writes[`${HELD_PREFIX}${slot}:${DOWN_ONLY}`] = { key: k, at: Date.now(), down: true };
+  }
+  const late = {};
   for (const [area, m] of fellOnCatch) if (pairState(doc, area).state !== 'dead') autoDead(area, m);
+  // (a new catch already down while held: its record goes in now that its encounter is written)
+  for (const [k, v] of Object.entries(writes)) if (k.startsWith(HELD_PREFIX) && !doc.get(k, null)) late[k] = v;
+  if (Object.keys(late).length) doc.batch(late);
+  // the held deaths the play view has shown by now – all of them where nothing holds any (a save file, an emulator
+  // outside souldew, an older caller)
+  if (snap.source === 'live' || !held) deaths.push(...revealHeld(doc, manifest, slot, { keep: held }).deaths);
+  // the first catch starts the rules where the bag couldn't tell (play view: startRules with the bag)
+  if (caughtNew && beforeBalls(doc, manifest, slot)) startRules(doc, manifest, slot, 'catch');
   let failed = null;
   // (a death of this pass took the last life – any mode; markDead ended the run already)
-  if (auto && !statusBefore && doc.get('run:status', null)?.reason === 'lives') failed = 'lives';
+  const reason = doc.get('run:status', null)?.reason;
+  if (auto && !statusBefore && reason === 'lives') failed = 'lives';
   else if (solo && auto && !statusBefore) {
-    if (doc.get('run:status', null)?.reason === 'deathless') failed = 'deathless';
+    if (reason === 'deathless' || reason === 'blackout') failed = reason; // (a held death revealed with its whiteout)
     else if (blackout(doc, manifest, slot) && failRun(doc, manifest, slot, 'blackout')) failed = 'blackout';
   }
   return { inbox, alerts, newCatches, deaths, failed };

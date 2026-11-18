@@ -13,6 +13,9 @@
 // 2.8.3 adds "TM compatibility follows the TM moves" (@tmsFollowMoves, #81): 2.8.2 and older pass it to a bridge that
 // ignores it and build another game ("the ROM differs" – a warning, not a stop). A run with it travels as @4, which they
 // refuse with "update to 2.8.3"; 2.8.3 reads every shiny rate, so @4 covers shiny runs too.
+// 2.8.3 also adds the SoulLink rule "nothing counts before your first Poké Balls" (rules.startAtBalls): a 2.8.2 app
+// doesn't know it and would kill the linked Pokémon of everyone with its player's first knock-outs. A SoulLink with it
+// travels as @4 as well – the same format and version, no second one.
 import { shinyKnownTo280 } from './shiny.mjs';
 import { TMS_FOLLOW_MOVES } from './randomizer-options.mjs';
 
@@ -32,9 +35,12 @@ export const TMS_MIN_VERSION = '2.8.3';
 /** Does the run's randomizer use an option older versions would quietly build without? */
 export const needsTmsFollow = (m) => m?.randomizer?.enabled !== false && m?.randomizer?.values?.[TMS_FOLLOW_MOVES] === true;
 
+/** Does the SoulLink's host want nothing to count before the first Poké Balls – a rule 2.8.2 apps don't keep? */
+export const needsBallsRule = (m) => m?.mode !== 'nuzlocke' && m?.rules?.startAtBalls === true;
+
 /** What a run pack of manifest `m` needs: its format and, for a new format, the version that reads it. */
 export function packFormatOf(m) {
-  if (needsTmsFollow(m)) return { format: PACK_FORMAT_TMS, minVersion: TMS_MIN_VERSION };
+  if (needsTmsFollow(m) || needsBallsRule(m)) return { format: PACK_FORMAT_TMS, minVersion: TMS_MIN_VERSION };
   if (!m?.shiny) return { format: PACK_FORMAT };
   return shinyKnownTo280(m.shiny) ? { format: PACK_FORMAT_SHINY, minVersion: SHINY_MIN_VERSION } : { format: PACK_FORMAT_SHINY_ANY, minVersion: SHINY_ANY_MIN_VERSION };
 }

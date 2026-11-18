@@ -22,8 +22,16 @@ export const DEFAULT_RULES = {
   // lives (shared/lives.mjs): 0 = off, else how many – every death costs one; `livesPool` 'shared' | 'player'
   lives: 0,
   livesPool: 'shared',
+  // "Nothing counts before your first Poké Balls" (web/lib/run.mjs beforeBalls): until a player has a Poké Ball in the
+  // bag (or caught a Pokémon), their Pokémon don't die, a whiteout doesn't end the run and no encounter is spent – the
+  // standard Nuzlocke rules start once you can catch. Off here, so runs from before keep counting from the start; a new
+  // run takes NEW_RUN_RULES.
+  startAtBalls: false,
   // (the Discord webhook is not a rule: it stays on this computer – GET/PUT /api/runs/:id/discord)
 };
+
+/** What a new run starts with where it differs from DEFAULT_RULES (which older runs fall back to). */
+export const NEW_RUN_RULES = { startAtBalls: true };
 
 // Solo Nuzlocke rules. A preset only sets the rule toggles; tool settings (autoAssign, sounds) stay as they are.
 const CLASSIC = {
