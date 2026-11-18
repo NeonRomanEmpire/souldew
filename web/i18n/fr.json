@@ -500,6 +500,8 @@
   "feed.encReplaced": "{area} : {old} remplacé à la main par {new} ({who})",
   "feed.evolved": "{from} a évolué en {to}",
   "feed.faintedBy": "{name} est K.O. face à {enemy} (N. {lv}, {kind})",
+  "feed.faintedByAt": "{name} est K.O. face à {enemy} (N. {lv}, {kind}, {place})",
+  "feed.faintedAt": "{name} est K.O. ({place})",
   "feed.faintedCause": "{name} est K.O.",
   "feed.livesOff": "a désactivé les vies",
   "feed.livesOffSolo": "Vies désactivées pour ce run",

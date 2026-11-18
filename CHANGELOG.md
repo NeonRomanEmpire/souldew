@@ -2,6 +2,18 @@
 
 `npm run release` takes the release notes from the section of the version being released.
 
+## 2.8.3
+
+- **Live tracking: no deaths for Pokémon that never fought, and “Got away?” asks about the right place** (#79, #80 –
+  thanks for the reports). Knocking out a wild Pokémon could mark a team member dead that never entered the battle –
+  for example when the wild Pokémon happened to share its hidden ID number with one of yours, its 0 HP was taken for
+  your Pokémon's. Now a Pokémon only dies in a battle once it has been out in it and two fresh readings in a row show it
+  at 0 HP; one the battle view missed is caught as soon as the battle ends. The log line still names the area the
+  Pokémon was caught in (that's why it said Ruins of Alph) and now also says where it was knocked out. “Got away?” goes
+  by the place of the battle itself, never by where you walked afterwards – 2.8.2 already did that for most games, now
+  it also holds when the battle view lags behind the game – and when souldew can't tell where the battle was, it asks
+  nothing instead of guessing.
+
 ## 2.8.2
 
 - **Every shortcut can be changed – and any key can be a game button** (thanks to a player on Discord). Keys like R

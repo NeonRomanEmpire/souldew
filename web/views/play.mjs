@@ -1039,8 +1039,9 @@ export function GameSession({ session, mode }) {
               // a catching demo (an NPC's battle – Wally's, the old man's, the Dude's, Lyra's, Juniper's …) is no battle of
               // the player's: no encounter, no missed encounter, no catch chance, no cause of death – the tracker skips it
               const fight = playerBattle(seen);
-              // (a Pokémon at 0 HP counts once two reads in a row say so – the tracker files deaths from this party)
-              const party = confirmFaints(withBattleHp(res.party, fight), state);
+              // (a Pokémon at 0 HP counts once two reads in a row say so, in a battle only one that has been out in it –
+              // the tracker files deaths from this party)
+              const party = confirmFaints(withBattleHp(res.party, fight, state), state, fight);
               setMine(party);
               setBattle(fight);
               // (every poll – a stray reading must not decide whether the battle was a wild one)
@@ -1108,7 +1109,8 @@ export function GameSession({ session, mode }) {
   // is answered, hidden while a battle runs (web/lib/missed.mjs).
   const askRef = useRef(null);
   askRef.current = (q) => {
-    if (!doc || !manifest || !me) return false;
+    // (the game shows places, but where this battle was isn't known: no guess – #80)
+    if (!doc || !manifest || !me || q.placeLost) return false;
     const seen = liveRead.current;
     return missedQuestion(doc, manifest, runData, me, { foe: q.foe, wild: true, from: q.from, newMonAt: missedTr.current.caughtAt(q), boxes: seen.boxes, partySize: seen.party, here: q.here });
   };

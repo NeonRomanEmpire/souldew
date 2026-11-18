@@ -500,6 +500,8 @@
   "feed.encReplaced": "{area}: {old} von Hand durch {new} ersetzt ({who})",
   "feed.evolved": "{from} hat sich zu {to} entwickelt",
   "feed.faintedBy": "{name} wurde von {enemy} besiegt (Lv. {lv}, {kind})",
+  "feed.faintedByAt": "{name} wurde von {enemy} besiegt (Lv. {lv}, {kind}, {place})",
+  "feed.faintedAt": "{name} wurde besiegt ({place})",
   "feed.faintedCause": "{name} wurde besiegt",
   "feed.livesOff": "hat die Leben ausgeschaltet",
   "feed.livesOffSolo": "Leben für diesen Run ausgeschaltet",
