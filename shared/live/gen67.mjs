@@ -10,6 +10,8 @@
 // again, over the party stats; the four 56-byte blocks are shuffled by ((EC >> 13) & 31) % 24 like in Gen 4/5; the
 // checksum (0x06) is the 16-bit sum of 0x08–0xE7.
 
+import { summaryPk67 } from '../monstats.mjs';
+
 const u16 = (b, o) => b[o] | (b[o + 1] << 8);
 const u32 = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
 const w16 = (b, o, v) => {
@@ -122,6 +124,8 @@ export function pk6Mon(raw, gen) {
     gender: ['M', 'F', '-'][(formByte >> 1) & 3] || '-',
     shiny: ((tid ^ sid ^ (pid >>> 16) ^ (pid & 0xffff)) >>> 0) < 16,
     status: statusCode(status), level, hp, maxHp,
+    // nature, ability, IVs, EVs (shared/monstats.mjs)
+    summary: summaryPk67(d, gen),
   };
 }
 

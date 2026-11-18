@@ -5,6 +5,7 @@
 // doesn't care where the data came from.
 // Addresses/structs: research/live_ram.md (pret disassemblies + PKHeX), shared/data/addresses.json.
 import { decryptPK4 } from '../gen4save.mjs';
+import { summaryGB, summaryPk3, summaryPk45 } from '../monstats.mjs';
 import { readGen67, regions67, readGen67Battle, battleRegions } from './gen67.mjs';
 import { catchRate3ds } from './catch3ds.mjs';
 
@@ -143,6 +144,8 @@ export class LiveTables {
     const t = Object.create(this);
     t.types3 = rom.types?.keys && rom.types?.species ? rom.types : null;
     t.badges3 = Number.isInteger(rom.caps?.badgeFlags) ? rom.caps.badgeFlags : null;
+    // each species' two abilities (romtypes.mjs gbaAbilities: the retail base stats layout)
+    t.abilities3 = Array.isArray(rom.types?.abilities?.slots) ? rom.types.abilities : null;
     return t;
   }
 
@@ -216,6 +219,8 @@ function readGB(entry, read, T, state = {}) {
       moves: gen === 1 ? [d[8], d[9], d[10], d[11]].filter(Boolean) : [d[2], d[3], d[4], d[5]].filter(Boolean),
       shiny: gen === 2 && def === 10 && spe === 10 && spc === 10 && [2, 3, 6, 7, 10, 11, 14, 15].includes(atk),
       metLocation, metLevel, isEgg, otId,
+      // DVs and stat experience (shared/monstats.mjs)
+      summary: summaryGB(d, gen),
     });
   }
   // No party = title screen / intro (WRAM cleared): the badge byte means nothing yet – a 0 here would
@@ -265,6 +270,7 @@ export function parsePk3(d, T) {
   const sub = (ch) => data.subarray(order.indexOf(ch) * 12, order.indexOf(ch) * 12 + 12);
   const G = sub('G');
   const A = sub('A');
+  const E = sub('E');
   const M = sub('M');
   // (newer pokeemerald-expansion builds keep the Tera type in the top 5 bits: species:11, teraType:5 – Too Many
   // Types 2's Chimchar reads 0x5986 = 390 | 11 << 11)
@@ -290,7 +296,25 @@ export function parsePk3(d, T) {
     // an expanded engine numbers its items its own way: the retail item names would be wrong ones – the game's own name
     // goes along where the ROM's item table is known
     ...(T.expanded3 ? { itemOwn: true, ...(item && T.items3?.[item] ? { itemName: T.items3[item] } : {}) } : {}),
+    // nature, IVs, EVs and the ability (shared/monstats.mjs) – the retail engine's layout only: expanded engines moved
+    // the IVs (Run & Bun: bits 1–30), keep the ability slot elsewhere (hidden abilities) and change natures with mints
+    ...(T.expanded3 ? {} : { summary: summaryPk3(pid, ivs, E, (slot) => ability3(T, internal, slot)) }),
   };
+}
+
+/**
+ * The ability a Gen 3 Pokémon has: the ROM's base stats give each species two (shared/live/romtypes.mjs gbaAbilities,
+ * via LiveTables.withRom), the personality's ability bit picks one – a randomized or hacked game's own. → { id } in
+ * the app's numbering (Gen 3 numbers Air Lock 77), { id, name } for one the game renamed or added (its own name), or
+ * null without the ROM's table (or for an ability that is none: an empty second slot, the unused Cacophony).
+ */
+function ability3(T, internal, slot) {
+  const a = T.abilities3;
+  const g = a?.slots?.[internal]?.[slot];
+  if (!g || g > a.max) return null;
+  if (a.own?.[g]) return { id: g, name: a.own[g] };
+  const id = a.ids && g in a.ids ? a.ids[g] : g;
+  return id ? { id } : null;
 }
 
 /**
@@ -767,6 +791,8 @@ function pkMon(raw, gen, T) {
     status: gen === 5 ? gen5Status(d[0x88]) : d[0x88], level: d[0x8c], hp: u16le(d, 0x8e), maxHp: u16le(d, 0x90),
     // the alternate form (+0x40 bits 3–7: Rotom's appliances, Wormadam's cloaks, Shaymin's Sky Forme … – shared/forms.mjs)
     ...(d[0x40] >> 3 ? { form: d[0x40] >> 3 } : {}),
+    // nature, ability, IVs, EVs (shared/monstats.mjs)
+    summary: summaryPk45(d, gen),
   };
 }
 
