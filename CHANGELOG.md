@@ -2,6 +2,16 @@
 
 `npm run release` takes the release notes from the section of the version being released.
 
+## 2.8.3
+
+- **The randomizer says which file it got stuck on** (thanks to a player on Discord). When building a run stopped at a
+  file – the disk ran full, souldew wasn't allowed to use a folder, or the game file couldn't be read to the end – you
+  only saw “Randomizer error: RandomizerIOException” and a hint about ROM hacks. Now the message names the system's own
+  reason (“No space left on device”, “Permission denied”, “Input/output error” …), which file it was – the game file, the
+  new game in the run folder or the randomizer's working files – and what helps: free up space, allow souldew access to
+  the folder, or copy the game from an external drive, a network folder or iCloud Drive onto the computer. The
+  diagnostics (Help › Save diagnostics) now keep the cause behind the error, which file, and how much space was free.
+
 ## 2.8.2
 
 - **Every shortcut can be changed – and any key can be a game button** (thanks to a player on Discord). Keys like R

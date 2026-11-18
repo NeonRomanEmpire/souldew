@@ -3,6 +3,13 @@
 // English and only shows for a code these tables don't know. test/i18n-leaks.test.mjs keeps every code the server
 // sends in TEXTS.
 import { t } from './i18n.mjs';
+import { IS_MAC } from './platform.mjs';
+
+/** Which file a randomizer file error is about (toolchain.mjs ioFailure `where`). */
+const randoFile = (where) => where === 'game' ? t('err.randoFile.game', 'the game file')
+  : where === 'output' ? t('err.randoFile.output', 'the new game in the run folder')
+    : where === 'work' ? t('err.randoFile.work', 'the randomizer’s working files')
+      : t('err.randoFile.other', 'a file');
 
 const TEXTS = {
   requestTooLarge: () => t('err.requestTooLarge', 'Request too large'),
@@ -75,6 +82,12 @@ const TEXTS = {
   ctrTimeout: () => t('err.ctrTimeout', 'The 3DS randomizer took too long and was stopped. Try again – a fast drive helps.'),
   randoFailed: (v) => t('err.randoFailed', 'The randomizer can’t build this game with these settings – its data isn’t where the randomizer expects it, as in some ROM hacks and releases. Try another preset, or play without the randomizer. (Randomizer error: {what})', v),
   randoTimeout: () => t('err.randoTimeout', 'The randomizer took too long and was stopped. Try again.'),
+  // a file the randomizer couldn't read or write (server/lib/toolchain.mjs ioFailure): {what} is the system's own words
+  randoNoSpace: (v) => t('err.randoNoSpace', 'The disk ran full while the randomizer was writing {file} ({what}). Free up a few GB – a randomized 3DS game takes about 3 GB, plus about 1 GB while it is built – and build again.', { ...v, file: randoFile(v?.where) }),
+  randoNoAccess: (v) => IS_MAC ? t('err.randoNoAccessMac', 'souldew isn’t allowed to use {file} ({what}). On a Mac: System Settings › Privacy & Security › Files and Folders (or Full Disk Access) – allow souldew there. If it’s the game file, you can also move it into souldew’s library folder and add it again. Then build again.', { ...v, file: randoFile(v?.where) })
+    : t('err.randoNoAccess', 'souldew isn’t allowed to use {file} ({what}). Check that your user account may use that folder and that no security program blocks souldew (on Windows: Windows Security › Virus & threat protection › Ransomware protection › Controlled folder access). If it’s the game file, you can also move it into souldew’s library folder and add it again. Then build again.', { ...v, file: randoFile(v?.where) }),
+  randoReadFailed: (v) => t('err.randoReadFailed', 'The game file couldn’t be read completely ({what}). Is it on an external drive, a network folder or in iCloud Drive? Copy it onto the computer’s own disk – best into souldew’s library folder – add it again and build again. If that doesn’t help, the copy is damaged: get the game file again.', v),
+  randoIoFailed: (v) => t('err.randoIoFailed', 'The randomizer stopped at a file error: {what} ({file}). Check that the drive has free space and that souldew may use the folder, then build again. If it happens again, save the diagnostics (Help › Save diagnostics) and send them along.', { ...v, file: randoFile(v?.where) }),
   badEmulatorPath: () => t('err.badEmulatorPath', 'Invalid emulator path'),
   scriptMissing: () => t('err.scriptMissing', 'The mGBA script is missing – restart souldew to create it again'),
   emulatorRunning: () => t('err.emulatorRunning', 'The external emulator is still running. Save in the game, close the emulator, then try again.'),

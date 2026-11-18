@@ -507,8 +507,9 @@ async function buildInto(opts, onLog, onProgress, bridge) {
         try {
           res = await bridge(['randomize', patched.path, romOut, propsFile, seed, logOut, dataOut], { ctr: true, onLine: ctrProgress(step) });
         } catch (e) {
+          const err = ctrRandoError(e); // (first: a file error notes the free space as it was when the build stopped)
           rmSync(romOut, { force: true }); // a half-written game must never be played or compared
-          throw ctrRandoError(e);
+          throw err;
         }
         for (const w of res.warnings) if (!manifest.warnings.includes(w)) manifest.warnings.push(w);
         manifest.randomizer.settingsString = res.settingsString;
