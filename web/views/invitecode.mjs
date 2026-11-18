@@ -10,6 +10,7 @@ import { api } from '../lib/api.mjs';
 import { slotsOf, players as getPlayers } from '../lib/run.mjs';
 import { CodeHost, joinWithCode, normalizeCode, normalizeConfirm, formatCode, inviteCodeSupported, suggestSlot } from '../lib/invitecode.mjs';
 import { isStreamer } from '../lib/streamer.mjs';
+import { TMS_FOLLOW_MOVES } from '/shared/randomizer-options.mjs';
 
 // One code per run, kept outside the component: closing the invite dialog doesn't kill a code somebody may
 // be typing in right now. A request that comes in while nobody looks → toast.
@@ -67,13 +68,16 @@ const mmss = (ms) => {
 };
 
 /**
- * A run that older apps can't join (its pack names the version it needs – shared/runpack.mjs: another shiny rate): said
- * where the invite is handed out, so nobody waits for a friend whose souldew refuses the invite.
+ * A run that older apps can't join (its pack names the version it needs – shared/runpack.mjs: another shiny rate, TM
+ * compatibility that follows the TM moves): said where the invite is handed out, so nobody waits for a friend whose
+ * souldew refuses the invite.
  */
 export function PackVersionNote({ manifest }) {
   const version = manifest?.pack?.minVersion;
   if (!version) return null;
-  return html`<p class="warning info">${manifest.shiny
+  return html`<p class="warning info">${manifest.randomizer?.enabled !== false && manifest.randomizer?.values?.[TMS_FOLLOW_MOVES] === true
+    ? t('invite.needsVersionTms', 'In this run TM compatibility follows the new TM moves: everyone needs souldew {version} or newer to join. Older versions can’t open the invite.', { version })
+    : manifest.shiny
     ? t('invite.needsVersionShiny', 'This run changes the shiny rate: everyone needs souldew {version} or newer to join. Older versions can’t open the invite.', { version })
     : t('invite.needsVersion', 'Everyone needs souldew {version} or newer to join this run. Older versions can’t open the invite.', { version })}</p>`;
 }

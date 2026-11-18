@@ -46,9 +46,9 @@ export const KDF_ITERATIONS = 1000000;
 // Protocol ids from the app's former name – they must never change, or codes and packs of other versions stop working.
 const SALT = 'soullink-studio/invite-code@1';
 // The run pack's formats this app reads – shared/runpack.mjs PACK_FORMATS (a test keeps the two the same; a run with
-// another shiny rate has its own, which 2.7.4 refuses – and one with a rate 2.8.0 doesn't know, which 2.8.0 refuses).
-// A pack of a later format: "update souldew".
-export const PACK_FORMATS = ['soullink-studio/run-pack@1', 'soullink-studio/run-pack@2', 'soullink-studio/run-pack@3'];
+// another shiny rate has its own, which 2.7.4 refuses – and one with a rate 2.8.0 doesn't know, which 2.8.0 refuses; a
+// run whose TM compatibility follows the TM moves needs 2.8.3). A pack of a later format: "update souldew".
+export const PACK_FORMATS = ['soullink-studio/run-pack@1', 'soullink-studio/run-pack@2', 'soullink-studio/run-pack@3', 'soullink-studio/run-pack@4'];
 const packFormatState = (pack) => (PACK_FORMATS.includes(pack?.format) ? 'ok'
   : typeof pack?.format === 'string' && /^soullink-studio\/run-pack@\d{1,4}$/.test(pack.format) ? 'newer' : 'invalid');
 const MAX_FAILS = 3; // wrong key or declined
