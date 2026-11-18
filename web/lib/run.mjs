@@ -9,6 +9,7 @@ import { DEFAULT_RULES, RULE_PRESETS, NUZLOCKE_RULES, rulesWithDefaults } from '
 import { placeName } from '/shared/live/location.mjs';
 import { livesLeft, livesOf, deathsIn, poolOf } from '/shared/lives.mjs';
 import { hostSlotOf, canEditRules, SOULLINK_RULE_KEYS } from '/shared/hostrules.mjs';
+import { cleanSummary } from '/shared/monstats.mjs';
 
 export { ALL_SLOTS, slotsOf, runMode, isNuzlocke, othersOf, DEFAULT_RULES, RULE_PRESETS, NUZLOCKE_RULES, hostSlotOf, canEditRules };
 // Runs from before 1–4 players were always a pair – the default where no slots/manifest are passed.
@@ -1012,6 +1013,8 @@ const hatchedKeys = new WeakMap();
 
 /** `wasEgg`: the app saw this Pokémon as an egg – an untracked one keeps that mark in the live team (hatchedMon). */
 function liveMon(m, area, wasEgg = false) {
+  // nature, ability, IVs, EVs as the reader got them (shared/monstats.mjs) – the board's Pokémon details; an egg's stay out
+  const summary = m.isEgg ? null : cleanSummary(m.summary);
   return {
     key: m.key, area, species: m.species, nick: m.nickname, level: m.level, hp: m.hp, maxHp: m.maxHp, item: m.item ?? m.heldItem,
     status: m.status, shiny: m.shiny, gender: m.gender, moves: m.moves, ...(m.form ? { form: m.form } : {}), ...(m.isEgg ? { egg: true } : !area && wasEgg ? { hatched: true } : {}),
@@ -1019,6 +1022,7 @@ function liveMon(m, area, wasEgg = false) {
     ...(m.itemOwn ? { itemOwn: true, ...(m.itemName ? { itemName: String(m.itemName).slice(0, 24) } : {}) } : {}),
     // where an untracked mon was met – the Nuzlocke checks tell a second catch on a spent area by it
     ...(!area && m.metLocation != null ? { met: m.metLocation, metLevel: m.metLevel ?? null, ...(m.eggLocation > 0 ? { eggLocation: m.eggLocation } : {}) } : {}),
+    ...(summary ? { summary } : {}),
   };
 }
 

@@ -677,6 +677,23 @@ details.group details.group { margin: 0 14px 8px; }
 .party.row .pp.fainted { background: color-mix(in srgb, color-mix(in srgb, var(--cir) 14%, var(--shell-2)) 88%, transparent); }
 .party.row .pp.empty { background: #1b1a1f66; }
 
+/* a Pokémon's details (the board's live teams: web/views/mondetail.mjs) – calm and compact */
+.mon-head { align-items: center; gap: 14px; }
+.mon-moves { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mon-moves > li { margin: 0; }
+.mon-stats { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid #ffffff0a; }
+.mon-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0; font-size: 13px; }
+.mon-facts dt { color: var(--ink-3); }
+.mon-facts dd { margin: 0; min-width: 0; }
+.mon-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.mon-table th, .mon-table td { padding: 3px 4px; text-align: right; font-weight: 400; }
+.mon-table thead th { color: var(--ink-3); font-size: 11.5px; }
+.mon-table tbody th { text-align: left; color: var(--ink-3); }
+.mon-table td { font-family: var(--font-mono); color: var(--ink); }
+.mon-table .up { color: var(--ok-ink); }
+.mon-table .down { color: var(--bad-ink); }
+.mon-table .mon-total { color: var(--ink-3); padding-left: 10px; }
+
 /* SoulLink board: linked pairs as two party menus side by side */
 .pairboard { display: flex; flex-direction: column; gap: 8px; }
 .pair-row { display: grid; grid-template-columns: minmax(0, 1fr) 112px minmax(0, 1fr); gap: 6px; align-items: stretch; }

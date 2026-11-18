@@ -76,9 +76,21 @@ export function typeLabel(type) {
   return TYPE_LABELS[t] || P?.typeNames?.[currentLang()]?.[t] || P?.typeNames?.en?.[t] || t;
 }
 
-export function moveName(id) {
-  const l = P?.moves?.[currentLang()] ? currentLang() : 'en';
+export function moveName(id, lang = currentLang()) {
+  const l = P?.moves?.[lang] ? lang : 'en';
   return P?.moves?.[l]?.[id] || '';
+}
+
+/** An ability's name by its number (the games number them alike from Gen 3 on); '' when unknown. */
+export function abilityName(id, lang = currentLang()) {
+  const l = P?.abilities?.[lang] ? lang : 'en';
+  return (Number.isInteger(id) && id > 0 && (P?.abilities?.[l]?.[id] || P?.abilities?.en?.[id])) || '';
+}
+
+/** A nature's name by its number in the games (0 Hardy … 24 Quirky); '' when unknown. */
+export function natureName(n, lang = currentLang()) {
+  const l = P?.natures?.[lang] ? lang : 'en';
+  return (Number.isInteger(n) && (P?.natures?.[l]?.[n] || P?.natures?.en?.[n])) || '';
 }
 
 /**

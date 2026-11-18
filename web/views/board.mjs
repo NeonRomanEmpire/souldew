@@ -12,6 +12,7 @@ import {
 } from '../lib/run.mjs';
 import { writeHostRules } from '../lib/hostrules.mjs';
 import { PartyPanel, PartyGrid, TeamColumns, unhatched } from './party.mjs';
+import { MonDetail } from './mondetail.mjs';
 import { HostCode, PackVersionNote } from './invitecode.mjs';
 import { RestartModal } from './restart.mjs';
 import { KeepIntroItem } from './introsave.mjs';
@@ -322,7 +323,7 @@ export function InviteBody({ manifest, heading = true }) {
 
 // One SoulLink pair as two party-menu panels (your mon | partner's mon) joined by a strand. Three or four players:
 // the area with its strand on top, everybody's panel below it in the same columns as the head.
-function GroupRow({ area, mons, leads }) {
+function GroupRow({ area, mons, leads, onPick }) {
   const { doc, manifest, runData } = useApp();
   const slots = slotsOf(manifest);
   const st = area ? pairState(doc, area, slots).state : 'empty';
@@ -330,7 +331,7 @@ function GroupRow({ area, mons, leads }) {
   const side = (slot) => {
     const mon = mons[slot];
     return html`<${PartyPanel} mon=${mon} gen=${runData.gen} accent=${`var(--${slot})`} lead=${!!mon && leads[slot] === mon} dead=${dead}
-      types=${mon && !mon.maxHp ? runData.types(mon.species, slot) : null} placeholder=${t('board.noMon', 'not in the team')} />`;
+      types=${mon && !mon.maxHp ? runData.types(mon.species, slot) : null} placeholder=${t('board.noMon', 'not in the team')} onPick=${onPick ? (m) => onPick(m, slot) : null} />`;
   };
   const label = area ? areaName(doc, manifest, area) : t('board.unlinked', 'unassigned');
   const strand = html`<svg viewBox="0 0 120 26" preserveAspectRatio="none" aria-hidden="true"><path class="strand" vector-effect="non-scaling-stroke" d="M1 13 C 30 2, 50 24, 60 13 S 92 2, 119 13" /></svg>`;
@@ -377,6 +378,9 @@ function LiveTab({ warnings }) {
   const names = getPlayers(doc, manifest);
   const slots = slotsOf(manifest);
   const solo = isNuzlocke(manifest);
+  // the Pokémon whose details are open (its key: the live data of the next snapshot shows, not the one clicked)
+  const [detail, setDetail] = useState(null);
+  const pick = (mon, slot) => setDetail({ slot, key: mon.key || null, mon });
   const fromLive = (slot) => {
     const l = live(doc, slot);
     // (an egg stays out until it hatches – then it is a Pokémon of the team like any other)
@@ -399,12 +403,13 @@ function LiveTab({ warnings }) {
     ${slots.length === 2
       ? html`<div class="pair-row pair-head">${who(slots[0])}<span class="pair-gap"></span>${who(slots[1])}</div>`
       : html`<div class=${`group-mons group-head n${slots.length}`}>${slots.map((s) => who(s))}</div>`}
-    ${rows.map((r) => html`<${GroupRow} key=${r.area} ...${r} leads=${leads} />`)}
-    ${unassigned.map((r, i) => html`<${GroupRow} key=${`u${i}`} ...${r} leads=${leads} />`)}
+    ${rows.map((r) => html`<${GroupRow} key=${r.area} ...${r} leads=${leads} onPick=${pick} />`)}
+    ${unassigned.map((r, i) => html`<${GroupRow} key=${`u${i}`} ...${r} leads=${leads} onPick=${pick} />`)}
   </div>`;
   const teamsView = html`<${TeamColumns} slots=${slots} teams=${teams} names=${Object.fromEntries(slots.map((s) => [s, names[s].name]))} gen=${runData.gen} me=${me}
-    typesOf=${(id, s) => runData.types(id, s)} caption=${areaOf} isDead=${deadPair} />`;
+    typesOf=${(id, s) => runData.types(id, s)} caption=${areaOf} isDead=${deadPair} onPick=${pick} />`;
   const empty = rows.length + unassigned.length === 0;
+  const shown = detail && ((detail.key && teams[detail.slot]?.find((m) => m.key === detail.key)) || (!detail.key && detail.mon));
   return html`<div class="stack-l">
     <${Inbox} />
     <${Warnings} list=${warnings} />
@@ -413,7 +418,7 @@ function LiveTab({ warnings }) {
           <p class="muted prose">${solo ? t('board.emptyTextSolo', 'Start the game – as soon as you have Pokémon, your team appears here live.')
             : slots.length > 2 ? t('board.emptyTextGroup', 'Start the game – as soon as you have Pokémon, every team appears here live, group by group.')
               : t('board.emptyText', 'Start the game – as soon as you have Pokémon, both teams appear here live, pair by pair.')}</p></div>`
-      : solo ? html`<${SoloTeam} team=${teams.p1} areaOf=${areaOf} isDead=${deadPair} />`
+      : solo ? html`<${SoloTeam} team=${teams.p1} areaOf=${areaOf} isDead=${deadPair} onPick=${(m) => pick(m, 'p1')} />`
         : html`<section class="stack">
           <div class="row live-view-bar"><span class="small faint">${view === 'teams'
             ? slots.length > 2 ? t('board.viewTeamsHintGroup', 'Every team as in the game menu') : t('board.viewTeamsHint', 'Both teams as in the game menu')
@@ -424,11 +429,13 @@ function LiveTab({ warnings }) {
             </div></div>
           ${view === 'teams' ? teamsView : pairs}
         </section>`}
+    ${shown && html`<${MonDetail} mon=${shown} gen=${runData.gen} slot=${detail.slot} owner=${solo ? '' : names[detail.slot]?.name || ''}
+      caption=${areaOf(shown)} onClose=${() => setDetail(null)} />`}
   </div>`;
 }
 
 /** Solo live view: the team as in the game menu, with the level cap, the next boss and the box next to it. */
-function SoloTeam({ team, areaOf, isDead }) {
+function SoloTeam({ team, areaOf, isDead, onPick }) {
   const { doc, manifest, runData } = useApp();
   const r = getRules(doc, manifest);
   const { cap, boss } = levelCap(doc, manifest, 'p1');
@@ -436,7 +443,7 @@ function SoloTeam({ team, areaOf, isDead }) {
   const over = cap && r.levelCaps ? team.filter((m) => m.level > cap).length : 0;
   return html`<section class="solo-team">
     <${PartyGrid} party=${team} gen=${runData.gen} accent="var(--p1)" label=${t('play.yourTeam', 'Your team')}
-      typesOf=${(id) => runData.types(id, 'p1')} isDead=${isDead}
+      typesOf=${(id) => runData.types(id, 'p1')} isDead=${isDead} onPick=${onPick}
       caption=${(m) => `${areaOf(m)}${cap && r.levelCaps && m.level > cap ? ` · ${t('solo.overCap', 'over the cap')}` : ''}`} />
     <aside class="solo-side panel">
       ${cap && r.levelCaps ? html`<div class=${`solo-cap ${over ? 'over' : ''}`}><span class="small muted">${t('cap.title', 'Level cap')}</span>

@@ -25,7 +25,7 @@ import { identifyCtr } from '../../shared/ctr.mjs';
 import { ctrZonePlaces } from '../../shared/live/ctrzones.mjs';
 import { musicIndex } from '../../shared/ctr/musicindex.mjs';
 
-const VERSION = 22; // bump when romData() / ctrData() change what they find or the shape of the result (13: types and level caps from the ROM, 14: 3DS zone tables, 15: their header, 16: Gen 3 hacks with moved RAM, badge flags by the leaders' order, 17: Black/White zone headers, 18: catch rates with the types, the Game Boy enemy's status / catch rate / battle type moved with a hack's RAM, 19: the Game Boy map headers, Gen 3 map headers, Black 2/White 2 zone headers – the place sign checks the game's copy of the current map's header against them, 20: Yellow's map headers (249 maps) and its memory table entry found from its ROM header, 21: Gen 5 forms' types, 22: a 3DS game's music streams – shared/ctr/musicindex.mjs)
+const VERSION = 23; // bump when romData() / ctrData() change what they find or the shape of the result (13: types and level caps from the ROM, 14: 3DS zone tables, 15: their header, 16: Gen 3 hacks with moved RAM, badge flags by the leaders' order, 17: Black/White zone headers, 18: catch rates with the types, the Game Boy enemy's status / catch rate / battle type moved with a hack's RAM, 19: the Game Boy map headers, Gen 3 map headers, Black 2/White 2 zone headers – the place sign checks the game's copy of the current map's header against them, 20: Yellow's map headers (249 maps) and its memory table entry found from its ROM header, 21: Gen 5 forms' types, 22: a 3DS game's music streams – shared/ctr/musicindex.mjs, 23: GBA species' abilities and the ability names – romtypes.mjs gbaAbilities)
 const memo = new Map(); // ROM id → { result, failedAt? }
 /** A scan that failed is tried again after this long (a file a scanner held, a drive that slept). */
 const RETRY_FAILED_MS = (process.env.NODE_TEST_CONTEXT && Number(process.env.SLS_ROMDATA_RETRY_MS)) || 30000;
@@ -45,7 +45,7 @@ function opts(sharedDir) {
       const k = past ? Object.keys(past).map(Number).sort((a, b) => a - b).find((x) => x >= gen) : undefined;
       return k !== undefined ? past[k] : api.types?.[id] || [];
     };
-    tables = { gen3Charset: j('charset_gen3.json'), gen4Chars: j('gen4.json').chars, retail, gen3Index, dexNames: api.names?.en || [], dexNamesOther: ['de', 'fr', 'es', 'it'].map((l) => api.names?.[l]).filter(Boolean), addresses: j('addresses.json'), maps: j('maps.json'), baseTypes, moveNames: ['en', 'de', 'fr', 'es', 'it'].map((l) => api.moves?.[l]).filter(Boolean) };
+    tables = { gen3Charset: j('charset_gen3.json'), gen4Chars: j('gen4.json').chars, retail, gen3Index, dexNames: api.names?.en || [], dexNamesOther: ['de', 'fr', 'es', 'it'].map((l) => api.names?.[l]).filter(Boolean), addresses: j('addresses.json'), maps: j('maps.json'), baseTypes, moveNames: ['en', 'de', 'fr', 'es', 'it'].map((l) => api.moves?.[l]).filter(Boolean), abilityNames: ['en', 'de', 'fr', 'es', 'it'].map((l) => api.abilities?.[l]).filter(Boolean) };
   }
   return tables;
 }
@@ -84,7 +84,7 @@ export function romData(u8, sharedDir) {
   const own = species?.engine === 'expanded' ? ownTables3(u8, o) : { items: null, moves: null };
   // the game's types – names, each Pokémon's, the chart, the moves' (shared/live/romtypes.mjs): any ROM, so a hack that
   // changed them shows what it uses; a retail ROM reads as the app's own data
-  const types = romTypes(u8, { gen3Charset: o.gen3Charset, speciesMap: species?.map ? species : null, vanillaIndex: o.gen3Index, baseTypes: o.baseTypes, moveMap: own.moves?.map || null });
+  const types = romTypes(u8, { gen3Charset: o.gen3Charset, speciesMap: species?.map ? species : null, vanillaIndex: o.gen3Index, baseTypes: o.baseTypes, moveMap: own.moves?.map || null, abilityNames: o.abilityNames });
   // level caps from the game's trainers (shared/live/romcaps.mjs) – only a clean result; `capsWhy` says why not
   const c = romCaps(u8, { gen3Charset: o.gen3Charset, gen4Chars: o.gen4Chars });
   const caps = c.caps ? { caps: c.caps, leaders: c.leaders, final: c.final, badgeFlags: c.badgeFlags ?? null } : null;

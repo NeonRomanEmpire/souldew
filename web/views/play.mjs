@@ -1754,7 +1754,9 @@ export function ExternalFeed() {
         sp = romSpeciesNow();
         if (sp?.engine === 'expanded' || romMaps3Now()?.moved) return;
       }
-      const res = readLiveParty(entry, regionReader(liveInfo.regions), (sp ? T.withSpecies(sp) : T).withShinyOdds(shinyThreshold(manifest.shiny)), readState.current);
+      // (the ROM's types too: the Gen 3 Pokémon's abilities come with them – romtypes.mjs gbaAbilities)
+      const types = entry.gen === 3 && externalRun.rom ? romOwnNow()?.types || null : null;
+      const res = readLiveParty(entry, regionReader(liveInfo.regions), (sp ? T.withSpecies(sp) : T).withRom(types ? { types } : null).withShinyOdds(shinyThreshold(manifest.shiny)), readState.current);
       if (res?.party) applySnap({ source: 'live', party: confirmFaints(res.party, readState.current), game: entry.id, ...(res.badges !== undefined ? { badges: res.badges } : {}) });
     })().catch((err) => console.warn('live frame', err));
   }, [liveInfo?.at]);

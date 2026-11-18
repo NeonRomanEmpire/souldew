@@ -2,6 +2,17 @@
 
 `npm run release` takes the release notes from the section of the version being released.
 
+## 2.8.3
+
+- **Natures, abilities, IVs and EVs on the board** (#74 – thanks for the report). Click a Pokémon in a live team on the
+  board to see its moves, held item and a small stats block: nature, ability, Hidden Power (type and power), IVs and
+  EVs – in the Game Boy games DVs and stat experience. “Copy for damage calc” puts the Pokémon on the clipboard in
+  Pokémon Showdown’s format (species, item, ability, level, EVs, nature, IVs, moves), ready to paste into a damage
+  calculator. In Gen 3 games the ability comes from the game itself, so a randomized game or a ROM hack shows the one
+  it really gives. Only what souldew reads from the game is shown – a line the game doesn't have is left out, and ROM
+  hacks on an expanded engine (Run & Bun, Unbound, Radical Red …) show no stats block for now. The stats stay between
+  you and your partners: the stream overlay, the stream API and the Pokelink bridge don't show them.
+
 ## 2.8.2
 
 - **Every shortcut can be changed – and any key can be a game button** (thanks to a player on Discord). Keys like R
