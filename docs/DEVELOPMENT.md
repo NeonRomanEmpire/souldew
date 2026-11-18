@@ -169,7 +169,25 @@ to the library's game). Rebuild the bridge after changing it:
 `javac --release 8 -cp tools/upr/PokeRandoZX.jar:tools/upr-bridge -d tools/upr-bridge tools/upr-bridge/SoulLinkBridge.java tools/upr-bridge/TmFollow.java tools/upr-bridge/com/dabomstew/pkrandom/SysConstants.java`.
 Determinism: Sun built byte-identical with Temurin 17, OpenJDK 21 and 27 ("Nuzlocke hard mode" and "Chaos"); the Gen 6/7
 handlers' only enum-keyed map iteration is the weakness-berry table behind `Effectiveness.against`, already fixed.
-Game updates aren't loaded (UPR could only write them as LayeredFS).
+Game updates aren't loaded (UPR could only write them as LayeredFS – it refuses one .cxi with an update loaded), and a
+randomized game never gets its update in the player either (Azahar runs an installed update's code, which would undo
+the randomization).
+
+**3DS game updates** (title ID 0004000E + the game's low half, usually a `.cia`; a bare NCCH `.cxi`/`.3ds` works too):
+the library lists them in `ctrUpdates`, never as games, and puts the newest one souldew can install on its game
+(`rom.update`; `shared/ctr/update.mjs` `pickUpdate`) – an update added before its game waits for it. "Remove" in the
+game's details deletes souldew's copy in the library folder or marks a file in an included folder
+(`config.ctrUpdatesDetached`). The core finds an installed update on the emulated SD card of the save folder ctrhost
+points it at (`<save>/Azahar/sdmc/Nintendo 3DS/<id0>/<id1>/title/0004000e/<low>/content/` – the smallest `.tmd` there and
+the `.app` its first content record names), so `POST /api/ctr/start` installs it there before the host starts
+(`server/lib/ctrupdate.mjs`): the update file is unpacked once into `<data>/ctr/updates/<stamp>/` (the CIA's TMD and
+each content as it is – what Azahar's own "Install CIA" writes for a decrypted CIA; a bare NCCH gets a TMD souldew
+writes) and hard-linked (copied where links fail) into the save folder, with `souldew-update.json` saying which update
+it is; a save folder whose game has no update in the library any more loses the one souldew put there. Encrypted
+updates (title-key content or NCCH crypto) are refused – souldew has no keys. The start's answer carries `update`
+(`versionText`, `gameVersion`, `tracking` – `older` for an update before the latest, whose addresses the live data
+doesn't know) for the play view. The external Azahar app is unchanged: there the player installs the update with
+File › Install CIA.
 
 Notes: New 3DS mode is on (the core's default; a savestate from Old 3DS mode would crash the core, so the play view
 stores states as core `azahar-n3ds` and refuses others). The host exits with `_exit` – the core's unload crashes.

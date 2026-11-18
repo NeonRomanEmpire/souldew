@@ -40,6 +40,14 @@
   › TMs & HMs, off by default) gives such a TM to the Pokémon that could learn its new move in the original game – by TM,
   tutor or level-up, also as an earlier evolution. A move no Pokémon could learn goes to the Pokémon of its type; HMs and
   TMs that kept their move stay as they are. Everyone in a SoulLink needs souldew 2.8.3 to join a run that uses it.
+- **3DS: game updates in souldew's player** (thanks to players on Discord). An update file for a 3DS game – the .cia
+  of Ultra Sun / Ultra Moon 1.2, for example – used to be ignored, and the game always started as version 1.0. Now add
+  the update to your library like a game (Add files or drag and drop): souldew recognises it, puts it with its game (the
+  game's details say “Update v2.2.0 (game version 1.2) – installed”, with a Remove button) and its player starts the
+  game with it. An update added before its game waits for it. An encrypted update can't be used – souldew says so
+  instead of starting the old version without a word. Randomized runs start without the update, because the randomizer
+  builds the game from version 1.0. Live tracking knows the team's place in version 1.0 and in the latest update of
+  every 3DS Pokémon game; with an older update the play view says so if the team doesn't show up.
 
 ## 2.8.2
 

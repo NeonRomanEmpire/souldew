@@ -33,6 +33,7 @@ import { GPU_LABELS } from './settings.mjs';
 import { CTR_LAYOUTS, ctrLayoutAspect } from '/shared/ctrlayout.mjs';
 import { shinyThreshold } from '/shared/shiny.mjs';
 import { claimPad } from '../lib/padnav.mjs';
+import { ctrUpdateNote } from '../lib/ctrupdate.mjs';
 import { presenceLoop, presenceBody } from '../lib/presence.mjs';
 import { resolveHotkeys, hotkeyOf, keyMatches } from '../lib/controls.mjs';
 import { hotkeyHint, comboLabel } from './guide.mjs';
@@ -339,6 +340,7 @@ export function GameSession({ session, mode }) {
   // what souldew has confirmed it can read in this game (shared/live/features.mjs) – held items and moves only once
   // they all have names
   const [features, setFeatures] = useState(null);
+  const [ctrUpdate, setCtrUpdate] = useState(null); // 3DS: the update the game started with (server/lib/ctrupdate.mjs)
   const setBattle = (b) => setBattleState((prev) => (JSON.stringify(prev) === JSON.stringify(b) ? prev : b));
   const [demo, setDemo] = useState(false); // a catching demo is on (an NPC's battle – not shown, but still a battle)
   const [liveState, setLiveStateRaw] = useState({ status: 'searching' });
@@ -990,6 +992,10 @@ export function GameSession({ session, mode }) {
         if (stopped) return;
         const e = emu();
         if (e?.ready && entry) {
+          if (entry.gen >= 6 && e.update) {
+            const u = e.update();
+            setCtrUpdate((p) => (p === u ? p : u));
+          }
           const info = e.ramInfo();
           // Searching the heap is costly – slow down after ~1 min without a hit.
           const every = info.tried < 25 ? 2500 : 15000;
@@ -1555,6 +1561,7 @@ export function GameSession({ session, mode }) {
           ${liveState.status === 'hack' && html`<span class="small muted">${isRun
             ? t('play.liveHackRun', 'This ROM hack runs on an expanded engine (new Pokémon numbers and a different memory layout) that souldew can’t read reliably yet – so it shows nothing rather than wrong Pokémon. The run still works: enter catches by hand.')
             : t('play.liveHackSolo', 'This ROM hack runs on an expanded engine (new Pokémon numbers and a different memory layout) that souldew can’t read reliably yet – so it shows nothing rather than wrong Pokémon.')}</span>`}
+          ${ctrUpdateNote(ctrUpdate, liveState.status === 'live') && html`<span class="small muted">${ctrUpdateNote(ctrUpdate, liveState.status === 'live')}</span>`}
           ${isRun && names
             ? html`<${LinkedPairs} mine=${myParty} gen=${gameGen} compact=${!!battle?.enemy} />`
             : liveState.status !== 'unsupported' && liveState.status !== 'hack' && html`<${PartyGrid} party=${myParty} gen=${gameGen} compact accent="var(--p1)" label=${t('play.yourTeam', 'Your team')} noItems=${features?.items === 'no'} />`}

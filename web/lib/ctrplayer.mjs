@@ -993,6 +993,8 @@ window.__emu = {
     sendInput();
   },
   title: () => st.title,
+  /** The game's update in souldew's player (server/lib/ctrupdate.mjs prepareUpdate): null, or { versionText, gameVersion, installed, why, tracking … }. */
+  update: () => st.update || null,
   /** The screen layout (shared/ctrlayout.mjs CTR_LAYOUTS) or the smooth filter: applied right away, no restart. */
   setOption(k, v) {
     if (k === 'ctr_layout' && CTR_LAYOUTS.includes(v)) {
@@ -1035,6 +1037,7 @@ async function start() {
   st.id = j.id;
   st.liveMemory = !!j.liveMemory;
   st.renderer = j.renderer || null;
+  st.update = j.update || null;
   const stop = () => fetch('/api/ctr/stop', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', 'x-soullink': '1' }, body: JSON.stringify({ id: st.id }) }).catch(() => {});
   addEventListener('pagehide', stop);
   pump().catch((e) => {
