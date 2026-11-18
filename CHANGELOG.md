@@ -2,6 +2,15 @@
 
 `npm run release` takes the release notes from the section of the version being released.
 
+## 2.8.3
+
+- **Run & Bun: catches sent to the PC are tracked** (#77 – thanks for the report). With a full team a new catch – like a
+  Pokémon fished in Littleroot Town's pond – goes straight to the PC, and in Run & Bun souldew only saw it once it joined
+  the team, so the place stayed “First encounter open”. souldew now reads Run & Bun's PC boxes live, as in Emerald: the
+  catch is filed under its place right away, souldew asks again after a wild Pokémon that got away while your team is
+  full, and the board shows how many Pokémon are in the box. Other ROM hacks on the same engine get it too wherever
+  their PC is where Emerald keeps it.
+
 ## 2.8.2
 
 - **Every shortcut can be changed – and any key can be a game button** (thanks to a player on Discord). Keys like R
