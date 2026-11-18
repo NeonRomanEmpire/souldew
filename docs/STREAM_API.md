@@ -87,7 +87,7 @@ Every data endpoint takes `?lang=en|de|fr|es|it` for Pokémon, item and place na
                   "battle": { "kind": "wild", "species": 245, "name": "Suicune", "level": 40, "legendary": "legendary", "sprites": { "…": "…" } } },
     "party": [{
       "slot": "p1", "key": "a", "area": "route-29", "areaName": "Route 29",
-      "species": 17, "name": "Pidgeotto", "nickname": "Pip", "level": 18,
+      "species": 17, "form": 0, "name": "Pidgeotto", "nickname": "Pip", "level": 18,
       "hp": 20, "maxHp": 30, "status": "", "fainted": false, "item": { "id": 245, "name": "Poison Barb" },
       "shiny": true, "egg": false, "dead": false, "alive": true, "inParty": true, "legendary": null,
       "sprites": {
@@ -135,7 +135,8 @@ Field notes:
   `hp`/`maxHp` `null` when unknown; `status`: `slp psn tox brn frz par` or `""`; `fainted`: 0 HP; `dead`: its link is
   in the graveyard; `alive`: neither. `item`: the held item (`name` from the Gen 3–5 tables, `null` in Gen 1/2) or
   `null`. `area` / `areaName`: the encounter area it counts for (`null` = not tracked). `legendary`:
-  `"legendary"`, `"mythical"` or `null`. `inParty: false` marks a link member that sits in the box. An egg isn't
+  `"legendary"`, `"mythical"` or `null`. `form`: the game's form number (`0` = the species' own; a Mega, an Alolan
+  form, Rotom's appliances …) – `species`, `name` and `sprites` stay the species'. `inParty: false` marks a link member that sits in the box. An egg isn't
   listed until it hatches (its species would give away what hatches – in a randomized game a surprise).
 - `links[]`: every area where all players caught something (`alive`) or whose group died (`dead`), with each
   player's Pokémon (`null` if none). In a Nuzlocke a link has one member.

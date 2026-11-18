@@ -79,6 +79,16 @@
   catch is filed under its place right away, souldew asks again after a wild Pokémon that got away while your team is
   full, and the board shows how many Pokémon are in the box. Other ROM hacks on the same engine get it too wherever
   their PC is where Emerald keeps it.
+- **Megas and other alternate forms are tracked when you catch them** (thanks to a player on Discord). In ROM hacks on
+  pokeemerald-expansion that leave out a generation of Pokémon, souldew lost track of every alternate form – a caught
+  Mega, Primal or regional form was never filed and had to be entered by hand. Now such a catch is filed on its route as
+  its species: a Mega Charizard Y counts as Charizard for the dupes clause, the evolution line, SoulLink pairs and the
+  Pokédex, and an Alolan form counts as its species' line too. Your team, the board and the battle help show the form:
+  “Charizard (Mega Y)” with its own picture, also in randomized 3DS games with wild alternate forms, and “Copy for damage
+  calc” names it the Showdown way (“Charizard-Mega-Y”). A Mega Evolution, Zen Mode, Ash-Greninja, Zygarde's Complete
+  Forme, a Wishiwashi School and the like during a battle never count as a new catch, a death or a missing Pokémon. The
+  randomizer spoilers name wild alternate forms correctly instead of as some other Pokémon, and the stream API gives each
+  Pokémon's form number.
 
 ## 2.8.2
 

@@ -166,14 +166,15 @@ export function buildState(manifest, doc, opts = {}) {
     const item = Number.isInteger(m.item) && m.item > 0 ? { id: m.item, name: (m.itemOwn ? m.itemName : itemName(m.item, gen)) || null } : null;
     return {
       slot, key: str(m.key) || null, area: m.area ? str(m.area, 60) : null, areaName: label(m.area),
-      species, name: sp(species), nickname: str(m.nick ?? m.nickname, 24), level: lv,
+      // (`form`: the game's form number – a Mega, an Alolan form …; `species` stays the species, its sprites the species')
+      species, form: Number.isInteger(m.form) && m.form > 0 && m.form < 32 ? m.form : 0, name: sp(species), nickname: str(m.nick ?? m.nickname, 24), level: lv,
       hp, maxHp: hp === null ? null : m.maxHp, status: status === 'fnt' ? '' : status, fainted, item,
       shiny: !!m.shiny, egg: !!m.egg, dead, alive: !dead && !fainted, inParty: true,
       legendary: legendaryKind(species),
       sprites: spriteUrls(species, { gen, shiny: !!m.shiny, base, token }), ...extra,
     };
   };
-  const fromEncounter = (area, slot, e) => mon({ key: null, area, species: e.species, nick: e.nickname, level: e.level, shiny: e.shiny }, slot, { inParty: false });
+  const fromEncounter = (area, slot, e) => mon({ key: null, area, species: e.species, form: e.form, nick: e.nickname, level: e.level, shiny: e.shiny }, slot, { inParty: false });
 
   const rules = rulesWithDefaults(val('rules'), mode);
   delete rules.discordWebhook; // stays on the streamer's computer (and older runs kept it here)

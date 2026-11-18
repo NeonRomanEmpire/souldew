@@ -5,7 +5,7 @@ import { html, useState, useEffect, useRef } from '/vendor/htm-preact.mjs';
 import { useApp, Sprite, Types, HpBar, Modal, useFocusTrap } from '../lib/ui.mjs';
 import { Icon } from '../lib/icons.mjs';
 import { t, currentLang } from '../lib/i18n.mjs';
-import { speciesName, typeLabel, moveName, romTypesNow, pokeapi } from '../lib/data.mjs';
+import { speciesName, speciesFormName, typeLabel, moveName, romTypesNow, pokeapi } from '../lib/data.mjs';
 import {
   party as partyAreas, live, pairState, encounter, levelCap, rules as getRules, dupeOf, players as getPlayers,
   areaName, causeText, slotsOf, othersOf, openAreas, isNuzlocke, pairTypeClash, typeHelpOn, lives as getLives, livesFor,
@@ -373,7 +373,7 @@ export function BattlePanel({ battle, mine, gen, game = '', isRun, side = 'left'
   const moveLabel = other === 'left' ? t('battle.moveLeft', 'Show the battle helper left of the game') : t('battle.moveRight', 'Show the battle helper right of the game');
   const foldLabel = collapsed ? t('battle.expand', 'Show the battle helper in full') : t('battle.collapse', 'Fold the battle helper in');
   const head = html`<div class="bt-head">
-    ${collapsed ? html`<span class="bt-head-foes">${foes.map((f) => html`<span class="bt-head-foe" key=${`${f.species}:${f.level}`}><${Sprite} id=${f.species} form=${f.form} shiny=${f.shiny} size=${30} gen=${gen} /><b>${speciesName(f.species)}</b><span class="num">${t('common.lv', 'Lv')} ${f.level}</span></span>`)}</span>`
+    ${collapsed ? html`<span class="bt-head-foes">${foes.map((f) => html`<span class="bt-head-foe" key=${`${f.species}:${f.level}`}><${Sprite} id=${f.species} form=${f.form} shiny=${f.shiny} size=${30} gen=${gen} /><b>${speciesFormName(f.species, f.form, gen)}</b><span class="num">${t('common.lv', 'Lv')} ${f.level}</span></span>`)}</span>`
       : html`<span class="bt-title px">${t('battle.title', 'Battle')}</span>`}
     <span class="bt-kind">${kind}</span>
     ${onPrefs && html`<span class="bt-ctls">
@@ -398,7 +398,7 @@ export function BattlePanel({ battle, mine, gen, game = '', isRun, side = 'left'
     ${foeData.map(({ f, types }) => html`<div class="bt-foe" key=${`${f.species}:${f.level}`}>
       <${Sprite} id=${f.species} form=${f.form} shiny=${f.shiny} size=${many ? 40 : 48} gen=${gen} />
       <div class="bt-foe-body">
-        <div class="bt-name"><b>${speciesName(f.species)}</b><span class="num">${t('common.lv', 'Lv')} ${f.level}</span>
+        <div class="bt-name"><b>${speciesFormName(f.species, f.form, gen)}</b><span class="num">${t('common.lv', 'Lv')} ${f.level}</span>
           ${foeStatus(f) && html`<span class=${`pp-st ${foeStatus(f)}`}>${statusLabel(foeStatus(f))}</span>`}
           ${f.shiny && html`<span class="bt-tag shiny">✦ ${t('routes.bonusShiny', 'Shiny')}</span>`}${isLegendary(f.species) && html`<span class="bt-tag legend">${t('battle.legendary', 'Legendary')}</span>`}</div>
         <${Types} types=${types} />
