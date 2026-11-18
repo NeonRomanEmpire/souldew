@@ -2808,5 +2808,9 @@
   "ctl.ownerMenu": "le menu de souldew",
   "ctl.ownerSystem": "le système",
   "ctl.refusedNone": "{key}, ta touche pour « {action} », est prise par {owner} – pour l’instant elle n’a pas de touche. Clique dessus pour en choisir une autre.",
-  "ctl.refusedNow": "{key}, ta touche pour « {action} », est prise par {owner} – pour l’instant elle est sur {now}. Clique dessus pour en choisir une autre."
+  "ctl.refusedNow": "{key}, ta touche pour « {action} », est prise par {owner} – pour l’instant elle est sur {now}. Clique dessus pour en choisir une autre.",
+  "ctl.sneak": "Pad circulaire : inclinaison partielle (avancer discrètement)",
+  "ctl.sneakHint": "Pad circulaire à moitié (3DS) : maintiens la touche en marchant et le pad circulaire ne s’incline qu’en partie – pour avancer discrètement dans Rubis Oméga / Saphir Alpha ou marcher lentement dans d’autres jeux.",
+  "keys.sneak": "Pad circulaire à moitié – maintenir pour avancer discrètement (3DS)",
+  "pad.sneak": "Pad circulaire à moitié (3DS) : inutile avec un stick – incline-le juste un peu. Avec un bouton pour ça, la croix directionnelle avance aussi discrètement tant que tu le maintiens."
 }

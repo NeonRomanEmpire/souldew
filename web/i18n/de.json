@@ -2808,5 +2808,9 @@
   "ctl.ownerMenu": "das Menü von souldew",
   "ctl.ownerSystem": "das System",
   "ctl.refusedNone": "{key}, deine Taste für „{action}“, gehört zu {owner} – es hat vorerst keine Taste. Klick darauf, um eine andere zu wählen.",
-  "ctl.refusedNow": "{key}, deine Taste für „{action}“, gehört zu {owner} – es liegt vorerst auf {now}. Klick darauf, um eine andere zu wählen."
+  "ctl.refusedNow": "{key}, deine Taste für „{action}“, gehört zu {owner} – es liegt vorerst auf {now}. Klick darauf, um eine andere zu wählen.",
+  "ctl.sneak": "Schiebepad: halb neigen (schleichen)",
+  "ctl.sneakHint": "Schiebepad halb neigen (3DS): halte die Taste beim Laufen, dann neigt sich das Schiebepad nur ein Stück – zum Schleichen in Omega Rubin / Alpha Saphir oder für langsames Gehen in anderen Spielen.",
+  "keys.sneak": "Schiebepad halb neigen – halten zum Schleichen (3DS)",
+  "pad.sneak": "Schiebepad halb neigen (3DS): mit einem Stick nicht nötig – neige ihn einfach nur leicht. Mit einer Taste dafür schleicht auch das Steuerkreuz, solange du sie hältst."
 }

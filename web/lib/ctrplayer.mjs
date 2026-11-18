@@ -9,6 +9,7 @@ import { serverErrorText } from '/lib/errors.mjs';
 import { findEntry, regionsFor } from '/shared/live/parse.mjs';
 import { cheatRegions } from '/shared/live/cheats.mjs';
 import { CTR_LAYOUTS, ctrLayout, ctrTouchAt, blackPicture } from '/shared/ctrlayout.mjs';
+import { CTR_BIT, ctrInput } from '/shared/ctrinput.mjs';
 import { RomMusic } from '/lib/rommusic.mjs';
 
 const q = new URLSearchParams(location.search);
@@ -633,23 +634,12 @@ async function pump() {
 }
 
 // ---- input ------------------------------------------------------------------------------------------------------------
-// libretro joypad bits (the same numbers EmulatorJS uses, lib/controls.mjs BUTTONS.ejs) – plus ZL 12, ZR 13
-const BIT = { b: 0, y: 1, select: 2, start: 3, up: 4, down: 5, left: 6, right: 7, a: 8, x: 9, l: 10, r: 11, zl: 12, zr: 13 };
-const inp = { keys: 0, pad: 0, lx: 0, ly: 0, rx: 0, ry: 0, px: 0, py: 0, touch: false, stickX: 0, stickY: 0 };
+// the joypad bits and the Circle Pad (shared/ctrinput.mjs): keyboard and controller together, the half tilt
+const BIT = CTR_BIT;
+const inp = { keys: 0, pad: 0, lx: 0, ly: 0, rx: 0, ry: 0, px: 0, py: 0, touch: false, stickX: 0, stickY: 0, slowKey: false, slowPad: false, slowTest: false };
 let sentInput = '';
-// Sun/Moon walk with the Circle Pad only (the D-pad scrolls menus): the direction keys move it too – full tilt –
-// unless a controller's stick does
-function stickFromKeys() {
-  const k = inp.keys;
-  const x = (k & (1 << BIT.right) ? 1 : 0) - (k & (1 << BIT.left) ? 1 : 0);
-  const y = (k & (1 << BIT.down) ? 1 : 0) - (k & (1 << BIT.up) ? 1 : 0);
-  return [x * 0x7fff, y * 0x7fff];
-}
 function sendInput() {
-  const buttons = inp.keys | inp.pad;
-  const [kx, ky] = stickFromKeys();
-  const lx = inp.lx || inp.stickX || kx;
-  const ly = inp.ly || inp.stickY || ky;
+  const { buttons, lx, ly } = ctrInput({ ...inp, slow: inp.slowKey || inp.slowPad || inp.slowTest });
   const sig = [buttons, lx, ly, inp.rx, inp.ry, inp.px, inp.py, inp.touch].join();
   if (sig === sentInput) return;
   sentInput = sig;
@@ -662,6 +652,7 @@ function sendInput() {
 }
 
 let keyMap = {}; // keyCode → button
+let halfTiltKey = null; // Settings › Controls "Circle Pad: half tilt" – held: the Circle Pad goes only part of the way
 let hotkeys = controls.resolveHotkeys(null); // the shortcuts' keys (Settings › Controls) – handled by the play view
 function forwardKey(e, down) {
   post({ type: 'emu-key', key: e.key, code: e.code, keyCode: e.keyCode, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey, down, repeat: e.repeat, blur: e.blur || undefined });
@@ -671,6 +662,11 @@ addEventListener('keydown', (e) => {
   // a shortcut's exact key: the play view's, never also the game's (Shift+R as reset while R is B) – and Tab
   // fast-forwards here instead of moving the focus
   if (controls.isHotkeyKey(e, hotkeys)) return e.preventDefault();
+  if (halfTiltKey && e.keyCode === halfTiltKey.keyCode) {
+    e.preventDefault();
+    inp.slowKey = true;
+    return sendInput();
+  }
   const b = keyMap[e.keyCode];
   if (b === undefined) return;
   e.preventDefault();
@@ -679,6 +675,10 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => {
   forwardKey(e, false);
+  if (halfTiltKey && e.keyCode === halfTiltKey.keyCode) {
+    inp.slowKey = false;
+    return sendInput();
+  }
   const b = keyMap[e.keyCode];
   if (b === undefined) return;
   inp.keys &= ~(1 << BIT[b]);
@@ -688,6 +688,7 @@ addEventListener('blur', () => {
   forwardKey({ key: 'Tab', code: 'Tab', blur: true }, false); // ends a held fast-forward
   inp.keys = 0;
   inp.pad = 0;
+  inp.slowKey = false;
   inp.touch = false;
   sendInput();
 });
@@ -734,6 +735,7 @@ function applyControls(config) {
   if (sig === controlsSig) return; // (the play view hands them over once the game runs – mostly what was read at start)
   controlsSig = sig;
   keyMap = controls.keyButtons(config?.controls);
+  halfTiltKey = controls.resolve(config?.controls).sneak;
   hotkeys = controls.resolveHotkeys(config?.controls);
   padCfg = config?.pads || null;
   padButtons = controls.padMap(padCfg);
@@ -742,6 +744,8 @@ function applyControls(config) {
   // what was held under the old buttons is let go (the next poll presses what is still down)
   inp.keys = 0;
   inp.pad = 0;
+  inp.slowKey = false;
+  inp.slowPad = false;
   if (st.id) sendInput();
 }
 
@@ -756,14 +760,17 @@ function startPads() {
     const pad = controls.pickPad(navigator.getGamepads?.() || [], padCfg?.device || null);
     padRec.see(pad, padButtons, controls.appHasPad());
     if (!pad) {
-      if (inp.pad || inp.lx || inp.ly || inp.rx || inp.ry) Object.assign(inp, { pad: 0, lx: 0, ly: 0, rx: 0, ry: 0 }), sendInput();
+      if (inp.pad || inp.slowPad || inp.lx || inp.ly || inp.rx || inp.ry) Object.assign(inp, { pad: 0, slowPad: false, lx: 0, ly: 0, rx: 0, ry: 0 }), sendInput();
       return;
     }
     let bits = 0;
     for (const [btn, label] of Object.entries(padButtons)) {
       const i = IDX[label];
-      if (i !== undefined && pad.buttons[i]?.pressed) bits |= 1 << BIT[btn];
+      if (i !== undefined && pad.buttons[i]?.pressed && btn in BIT) bits |= 1 << BIT[btn];
     }
+    // the half tilt on a controller button (Settings › Controller): caps the left stick, and the D-pad sneaks too
+    const slow = IDX[padButtons.sneak];
+    inp.slowPad = !controls.appHasPad() && slow !== undefined && !!pad.buttons[slow]?.pressed;
     // the app's menus have the controller (lib/padnav.mjs): no buttons, sticks centred
     const [lx = 0, ly = 0, rx = 0, ry = 0] = controls.appHasPad() ? [] : pad.axes;
     inp.pad = controls.appHasPad() ? 0 : bits;
@@ -972,6 +979,13 @@ window.__emu = {
     inp.stickY = Math.round(Math.max(-1, Math.min(1, y)) * 0x7fff);
     sendInput();
   },
+  /** Tests / diagnostics: hold the half-tilt key (Settings › Controls "Circle Pad: half tilt") or let it go. */
+  halfTilt(on = true) {
+    inp.slowTest = !!on;
+    sendInput();
+  },
+  /** Diagnostics: what the page sends to the game right now – joypad bits and the Circle Pad (int16). */
+  input: () => ctrInput({ ...inp, slow: inp.slowKey || inp.slowPad || inp.slowTest }),
   touch(x, y, down = true) {
     inp.px = Math.round(x * 0xfffe - 0x7fff);
     inp.py = Math.round(y * 0xfffe - 0x7fff);

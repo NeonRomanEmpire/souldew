@@ -2,6 +2,16 @@
 
 `npm run release` takes the release notes from the section of the version being released.
 
+## 2.8.3
+
+- **3DS: sneak and walk slowly with the keyboard** (thanks to a player on Discord). In Omega Ruby and Alpha Sapphire you
+  sneak up on hidden Pokémon by tilting the Circle Pad only a little – but a key always tilts it all the way, so there
+  was no way to sneak without a controller. Now there is “Circle Pad: half tilt” in Settings › Controls: hold it while
+  you walk and the Circle Pad goes only part of the way – slow enough to sneak, and to walk slowly in other 3DS games
+  too. It's on C (on L with the WASD keys), can be changed like any other key and is listed in Help › Controls &
+  shortcuts. On a controller just tilt the stick a little – or give the half tilt a controller button in
+  Settings › Controller, then the D-pad sneaks as well.
+
 ## 2.8.2
 
 - **Every shortcut can be changed – and any key can be a game button** (thanks to a player on Discord). Keys like R

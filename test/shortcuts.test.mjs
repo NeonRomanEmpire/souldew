@@ -83,7 +83,9 @@ test('EmulatorJS and RetroArch keep no hotkeys of their own: only the 12 game bu
   assert.match(html, /for \(const n of Object\.keys\(p\)\) if \(Number\(n\) >= 12\) delete p\[n\];/);
   // the table souldew hands it: the 12 game buttons (RetroArch joypad 0–11), nothing else
   const t = ejsControls(null)[0];
-  assert.deepEqual(Object.keys(t).map(Number).sort((a, b) => a - b), BUTTONS.map((b) => b.ejs).sort((a, b) => a - b));
+  // (the 3DS half tilt is no joypad button – EmulatorJS never gets it)
+  assert.deepEqual(Object.keys(t).map(Number).sort((a, b) => a - b), BUTTONS.filter((b) => b.ejs !== undefined).map((b) => b.ejs).sort((a, b) => a - b));
+  assert.equal(Object.keys(t).length, 12);
   assert.ok(Object.keys(t).every((n) => Number(n) < 12));
   // the core's own keyboard (RetroArch's F1 menu, Space fast-forward, P pause, H reset …) stays off
   assert.match(html, /keyboardInput: 'disabled',/);
