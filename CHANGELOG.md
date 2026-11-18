@@ -17,6 +17,15 @@
   too. It's on C (on L with the WASD keys), can be changed like any other key and is listed in Help › Controls &
   shortcuts. On a controller just tilt the stick a little – or give the half tilt a controller button in
   Settings › Controller, then the D-pad sneaks as well.
+- **Live tracking: no deaths for Pokémon that never fought, and “Got away?” asks about the right place** (#79, #80 –
+  thanks for the reports). Knocking out a wild Pokémon could mark a team member dead that never entered the battle –
+  for example when the wild Pokémon happened to share its hidden ID number with one of yours, its 0 HP was taken for
+  your Pokémon's. Now a Pokémon only dies in a battle once it has been out in it and two fresh readings in a row show it
+  at 0 HP; one the battle view missed is caught as soon as the battle ends. The log line still names the area the
+  Pokémon was caught in (that's why it said Ruins of Alph) and now also says where it was knocked out. “Got away?” goes
+  by the place of the battle itself, never by where you walked afterwards – 2.8.2 already did that for most games, now
+  it also holds when the battle view lags behind the game – and when souldew can't tell where the battle was, it asks
+  nothing instead of guessing.
 
 ## 2.8.2
 

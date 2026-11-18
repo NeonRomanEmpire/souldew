@@ -500,6 +500,8 @@
   "feed.encReplaced": "{area}: {old} sustituido a mano por {new} ({who})",
   "feed.evolved": "{from} ha evolucionado a {to}",
   "feed.faintedBy": "{name} se debilitó contra {enemy} (Nv. {lv}, {kind})",
+  "feed.faintedByAt": "{name} se debilitó contra {enemy} (Nv. {lv}, {kind}, {place})",
+  "feed.faintedAt": "{name} se ha debilitado ({place})",
   "feed.faintedCause": "{name} se ha debilitado",
   "feed.livesOff": "desactivó las vidas",
   "feed.livesOffSolo": "Vidas desactivadas en esta partida",

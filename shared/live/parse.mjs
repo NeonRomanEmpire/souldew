@@ -1700,7 +1700,12 @@ function battleDS(entry, read, T, state, party) {
   }
   scanStep(read, size, entry.gen, T, state);
   if (flag && !state.candidates?.length) scanStep(read, size, entry.gen, T, state); // battle just began: hurry
-  const pids = new Set(party.map((m) => m.pid));
+  // one of the player's Pokémon: its PID *and* its species (a copy is never mid-evolution). Wild Pokémon carry the player's
+  // trainer ID, so the PID alone decides – and a wild one whose PID happens to be one of the team's (the game's random
+  // numbers repeat after a reset or a reloaded state) made its one-Pokémon copy pass as the player's: the knocked-out
+  // opponent's 0 HP went to the team member with that PID, who never was in the battle (#79)
+  const own = new Map(party.map((m) => [m.pid, m.species]));
+  const ours = (m) => own.get(m.pid) === m.species;
   const tid = party[0].key?.split('-')[1];
   const stale = state.staleCopies || new Set();
   const seen = state.seenCopies || (state.seenCopies = new Map());
@@ -1721,20 +1726,21 @@ function battleDS(entry, read, T, state, party) {
     // held for a few polls at most: a block the game freed and reused stays unreadable
     const mons = fresh || (h && h.misses < 3 ? h.mons : null);
     if (!mons) continue;
+    const reheld = !fresh; // (what this copy held a poll ago – no new reading)
     nextHeld.set(addr, { mons, misses: fresh ? 0 : h.misses + 1 });
     const ck = copyKey(addr, mons);
     if (stale.has(ck)) continue; // left over from an earlier battle, untouched since
     copies.set(addr, mons.length);
     if (!seen.has(addr)) seen.set(addr, ck);
     const changed = seen.get(addr) !== ck;
-    if (mons.every((m) => pids.has(m.pid))) {
+    if (mons.every(ours)) {
       // a player copy: prefer the one that changes during this battle, then one whose HP differs from the
       // frozen save party
       const diff = mons.some((m) => party.find((p) => p.pid === m.pid)?.hp !== m.hp);
       anyDiff ||= diff;
       const rank = (changed ? 2 : 0) + (diff ? 1 : 0);
-      if (!mine || rank >= mine.rank) mine = { addr, mons, diff, rank };
-    } else if (mons.every((m) => !pids.has(m.pid))) {
+      if (!mine || rank >= mine.rank) mine = { addr, mons, diff, rank, held: reheld };
+    } else if (!mons.some(ours)) {
       foreign.push(mons);
       // wild mons carry the player's ID too. The opponent also has a frozen copy (the battle setup) next to
       // the live one – the live one is the one that has taken damage.
@@ -1762,7 +1768,13 @@ function battleDS(entry, read, T, state, party) {
     }
     const use = s.foe ? s : state.bmonHeld && now - state.bmonHeld.at < 3000 ? state.bmonHeld.s : null; // a switch in progress
     note(state, s.foe ? `struct ${s.foe.species}/${s.foe.level}` : use ? `held (${s.why})` : `none (${s.why})`, flag);
-    if (use) return (state.battle = structBattle(use, party, live, T, state));
+    if (use) {
+      state.battle = structBattle(use, party, live, T, state);
+      // (the structs held over a switch: an earlier reading handed out again – confirmFaints doesn't count it as a second
+      // look at a Pokémon at 0 HP. The ones out come from the structs; the others' HP from a copy held over a rewrite
+      // only matters for one that has been out – and that one went down while it was: withBattleHp)
+      return s.foe ? state.battle : { ...state.battle, held: true };
+    }
     if (state.bmonOk) {
       // in battle, the opponent not sent out yet (or the previous battle's still there): a battle without an opponent
       if (flag) return (state.battle = { kind: state.battle?.kind || 'wild', enemy: null, active: null });
@@ -1787,7 +1799,7 @@ function battleDS(entry, read, T, state, party) {
     // heap search between two passes): keep showing the last one instead of blanking the panel until the next read
     if (flag === true && state.battle?.enemy) {
       note(state, 'held (no copy)', flag);
-      return state.battle;
+      return { ...state.battle, held: true };
     }
     if (flag === null && state.battle) retireCopies(read, size, entry.gen, T, state); // battle ended (no flag)
     state.battleStartSig = undefined;
@@ -1844,7 +1856,8 @@ function battleDS(entry, read, T, state, party) {
   };
   // (Gen 5: the battle structs' HP wins over the party copy's starting HP – every team member has one)
   if (hps && state.battle.party) state.battle.party = state.battle.party.map((m) => (hps.has(m.pid) ? { ...m, hp: hps.get(m.pid) } : m));
-  return state.battle;
+  // (the player's copy as it was a poll ago: no second look at a Pokémon at 0 HP – confirmFaints)
+  return mine?.held && !hps ? { ...state.battle, held: true } : state.battle;
 }
 
 /**
@@ -2217,20 +2230,43 @@ function holdEnemy(state, fight) {
 /**
  * The party with live battle HP folded in, so the tracker (and auto-death) sees a faint the moment it
  * happens instead of after the battle.
+ *
+ * `state` (the reader state of the session, optional): the Pokémon that have been out in this battle are kept there
+ * (battle.active / actives, by PID). Only one of them can go down in it – a bench Pokémon takes no hit. A 0 HP the
+ * battle's party copy shows for one that was never out is a read of something else (#79: the knocked-out wild
+ * Pokémon's HP landed on the team's last Pokémon, who never entered the battle): it keeps the HP of the party until
+ * the battle is over, when the party itself tells (a real faint the reader missed shows there).
  */
-export function withBattleHp(party, battle) {
-  if (!battle || !party) return party;
+export function withBattleHp(party, battle, state = null) {
+  if (!battle || !party) {
+    if (state) state.battleOut = null;
+    return party;
+  }
+  const out = state ? battleOut(state, party, battle) : null;
   if (battle.party) {
     const byPid = new Map(battle.party.map((m) => [m.pid, m]));
     return party.map((m) => {
       const b = byPid.get(m.pid);
+      if (!b) return m;
       // (a Pokémon that grew a level in this battle: the battle has its new max HP, the save party the old one until the end)
-      return b ? { ...m, hp: m.maxHp > 0 ? Math.min(b.hp, m.maxHp) : b.hp, ...(b.status !== undefined ? { status: b.status } : {}) } : m;
+      const hp = m.maxHp > 0 ? Math.min(b.hp, m.maxHp) : b.hp;
+      if (hp === 0 && m.hp > 0 && out?.size && !out.has(m.pid)) return m;
+      return { ...m, hp, ...(b.status !== undefined ? { status: b.status } : {}) };
     });
   }
   const a = battle.active;
   if (!a || a.hp === undefined || !party[a.index] || party[a.index].maxHp !== a.maxHp) return party;
   return party.map((m, i) => (i === a.index ? { ...m, hp: a.hp, ...(a.status !== undefined ? { status: a.status } : {}) } : m));
+}
+
+/** The PIDs of the player's Pokémon that have been out in the battle going on (state.battleOut), with this reading's. */
+function battleOut(state, party, battle) {
+  const out = state.battleOut || (state.battleOut = new Set());
+  for (const a of [battle.active, ...(battle.actives || [])]) {
+    const m = a && Number.isInteger(a.index) ? party[a.index] : null;
+    if (m?.pid !== undefined) out.add(m.pid);
+  }
+  return out;
 }
 
 /**
@@ -2239,14 +2275,17 @@ export function withBattleHp(party, battle) {
  * a struct the game is rewriting, or of the wrong struct, must never be enough for it (#12: a Pokémon that grew a level
  * on the bench showed 0 HP for a moment). On the first read the Pokémon keeps the HP it had before; a real faint stays
  * at 0 and shows one poll later. A Pokémon already at 0 HP when tracking starts isn't held (there is no HP to hold).
+ * `battle` (optional, the battle reading the party's HP came from): a reading the battle reader handed out again
+ * (`held` – the structs or the party copy held over a rewrite) is no second look: it neither starts nor confirms a faint.
  * `state` is the reader state of the session (the same object every poll). → the party, held HP where needed.
  */
-export function confirmFaints(party, state) {
+export function confirmFaints(party, state, battle = null) {
   if (!Array.isArray(party)) return party;
   const before = state.faintHp || new Map(); // key → the HP reported last time
   const zero = state.faintZero || new Set(); // keys read at 0 last time
   const nextHp = new Map();
   const nextZero = new Set();
+  const again = !!battle?.held;
   const out = party.map((m) => {
     const id = m?.key;
     if (!id) return m;
@@ -2255,13 +2294,23 @@ export function confirmFaints(party, state) {
       nextHp.set(id, m.hp);
       return m;
     }
-    nextZero.add(id);
     const was = before.get(id);
-    if (zero.has(id) || !(was > 0)) {
+    if (!(was > 0)) {
+      // down already (or at 0 since tracking started)
+      nextZero.add(id);
       nextHp.set(id, 0);
       return m;
     }
-    nextHp.set(id, was); // first read at 0: wait for the next one
+    if (again) {
+      // the same reading as before: whatever it showed then still stands, nothing more
+      if (zero.has(id)) nextZero.add(id);
+    } else if (zero.has(id)) {
+      // the second read in a row at 0: down
+      nextZero.add(id);
+      nextHp.set(id, 0);
+      return m;
+    } else nextZero.add(id); // first read at 0: wait for the next one
+    nextHp.set(id, was);
     return { ...m, hp: Math.min(was, m.maxHp) };
   });
   state.faintHp = nextHp;

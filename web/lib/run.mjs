@@ -551,7 +551,7 @@ export function openAreas(doc, manifest, slot = 'p1') {
  * Ask `slot` whether the wild battle that just ended spent an area (solo Nuzlocke and every player of a SoulLink – a
  * miss there fails the pair)? Not when a new Pokémon turned up since it began (`newMonAt` ≥ `from`), when it was a
  * trainer battle at any point (`wild` false – Gen 4 tells them apart by a heuristic that can flicker), for a shiny
- * (clause) or a dupe, when the run is over, when the place sign's area (`here`, where the battle ended) already has
+ * (clause) or a dupe, when the run is over, when the place sign's area (`here`, where the battle was) already has
  * this player's encounter – no first encounter then –, when a curated route list has no open area left, or when a
  * catch could have gone unseen: a full party sends it to the PC, and the PC is only read live in some games (`boxes`
  * false). In a SoulLink only where the place sign resolves to an area (one without this player's encounter, or a
@@ -1118,7 +1118,8 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
   let starterOffered = false;
   const battles = lastBattle.get(doc) || new Map();
   lastBattle.set(doc, battles);
-  if (snap.source === 'live' && battle?.enemy?.species) battles.set(slot, { battle, at: Date.now() });
+  // (with the place sign read during the battle: a death seen just after it is told where the battle was)
+  if (snap.source === 'live' && battle?.enemy?.species) battles.set(slot, { battle, at: Date.now(), here: snap.here || null });
   const recent = battles.get(slot);
   const fight = battle || (snap.source === 'live' && recent && Date.now() - recent.at < BATTLE_GRACE ? recent.battle : null);
   // auto-death: `m` (filed under `area`) fell – with the opponent of the battle as its cause
@@ -1126,12 +1127,18 @@ export function applySnapshot(doc, manifest, gen, slot, snap, { auto = true, rd 
     const name = m.nickname || { species: m.species };
     const foe = fight?.enemy?.species ? fight.enemy : null;
     const kind = fight?.kind === 'trainer' ? msg('cause.trainer', 'trainer battle') : msg('cause.wild', 'wild battle');
+    // where it fell: the place sign read with this snapshot (play view → snap.here) – or, when it is seen only once the
+    // battle is over (its party tells), where that battle was: the player may have walked on (#79)
+    const where = (!battle && fight ? recent.here : snap.here) || null;
+    // The log line names the area of the Pokémon's encounter ("Ruins of Alph: the Pokémon died") – where it fell goes
+    // with the cause, unless that is the same area (#79: read as the place of death)
+    const at = where?.name && areaForPlace(doc, manifest, gen, where) !== area ? String(where.name).slice(0, 40) : null;
     const cause = foe
-      ? msg('feed.faintedBy', '{name} fainted against {enemy} (Lv. {lv}, {kind})', { name, enemy: { species: foe.species }, lv: foe.level ?? '?', kind })
-      : msg('feed.faintedCause', '{name} fainted', { name });
+      ? at ? msg('feed.faintedByAt', '{name} fainted against {enemy} (Lv. {lv}, {kind}, {place})', { name, enemy: { species: foe.species }, lv: foe.level ?? '?', kind, place: at })
+        : msg('feed.faintedBy', '{name} fainted against {enemy} (Lv. {lv}, {kind})', { name, enemy: { species: foe.species }, lv: foe.level ?? '?', kind })
+      : at ? msg('feed.faintedAt', '{name} fainted ({place})', { name, place: at }) : msg('feed.faintedCause', '{name} fainted', { name });
     const killer = foe ? { species: foe.species, level: foe.level ?? null, kind: fight.kind || null } : null;
-    // where it fell: the place sign read with this snapshot (play view → snap.here)
-    if (markDead(doc, manifest, area, { slot, cause, level: m.level ?? null, killer, place: snap.here || null })) deaths.push(area);
+    if (markDead(doc, manifest, area, { slot, cause, level: m.level ?? null, killer, place: where })) deaths.push(area);
   };
   const autoDeath = auto && r.autoDeath && snap.source === 'live';
   const fellOnCatch = []; // new catches already at 0 HP: they die once their encounter is written
