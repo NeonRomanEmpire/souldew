@@ -72,6 +72,7 @@ export const SHORTCUTS = (controls = null) => {
 
 export const buttonLabel = (id) => ({
   up: t('ctl.up', 'D-Pad up'), down: t('ctl.down', 'D-Pad down'), left: t('ctl.left', 'D-Pad left'), right: t('ctl.right', 'D-Pad right'),
+  sneak: t('ctl.sneak', 'Circle Pad: half tilt (sneak)'),
 }[id] || ({ start: 'Start', select: 'Select' }[id] || id.toUpperCase()));
 
 /** Current game-button keys (Settings › Controls, defaults otherwise). */
@@ -81,7 +82,8 @@ export function ControlsTable() {
   const k = (id) => keyLabel(m[id]);
   return html`<table class="data"><thead><tr><th>${t('keys.button', 'Console button')}</th><th>${t('keys.key', 'Key')}</th></tr></thead><tbody>
     ${[['D-Pad', ['up', 'down', 'left', 'right'].map(k).join(' ')], ['A', k('a')], ['B', k('b')], ['X (DS)', k('x')], ['Y (DS)', k('y')], ['L / R', `${k('l')} / ${k('r')}`],
-      ['Start', k('start')], ['Select', k('select')], [t('keys.touch', 'Touch screen (DS)'), t('keys.mouse', 'Mouse')]]
+      ['Start', k('start')], ['Select', k('select')], [t('keys.sneak', 'Circle Pad half tilt – hold to sneak (3DS)'), k('sneak')],
+      [t('keys.touch', 'Touch screen (DS)'), t('keys.mouse', 'Mouse')]]
       .map(([a, b]) => html`<tr><td>${a}</td><td><span class="kbd">${b}</span></td></tr>`)}
   </tbody></table>`;
 }

@@ -1925,7 +1925,7 @@ export function startServer({ port = 7373, host = '127.0.0.1', background = true
 
 /** What config.pads.map may bind (web/lib/controls.mjs): the game buttons (BUTTONS) and the controller shortcuts
  *  (PAD_HOTKEY_IDS – fast-forward hold/toggle, turbo, pause). test/server-fixes.test.mjs keeps the two lists equal. */
-export const PAD_MAP_IDS = new Set(['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y', 'l', 'r', 'start', 'select', 'ffHold', 'ffToggle', 'turbo', 'pause']);
+export const PAD_MAP_IDS = new Set(['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y', 'l', 'r', 'start', 'select', 'sneak', 'ffHold', 'ffToggle', 'turbo', 'pause']);
 
 /**
  * The run's doc.json, or null when there is none. A damaged file is kept as doc.json.corrupt-<time> and reads as

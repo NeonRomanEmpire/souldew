@@ -19,7 +19,7 @@ import { suspendPadNav } from '../lib/padnav.mjs';
 const SYSTEMS = [['gb', 'Game Boy'], ['gbc', 'Game Boy Color'], ['gba', 'Game Boy Advance'], ['nds', 'Nintendo DS'], ['3ds', 'Nintendo 3DS']];
 /** Systems the built-in player runs only with an extra part: 3DS needs souldew's 3DS host (status.ctr). */
 const externalOnly = (sys, status) => sys === '3ds' && !status?.ctr?.ok;
-const SYS_SHORT = { nds: 'DS', gba: 'GBA', gb: 'GB' };
+const SYS_SHORT = { nds: 'DS', gba: 'GBA', gb: 'GB', '3ds': '3DS' };
 
 // "WASD" is printed as the layout prints those keys (ZQSD on AZERTY)
 const presetLabel = (id) => (id === 'arrows' ? t('ctl.presetArrows', 'Arrow keys')
@@ -168,6 +168,7 @@ function ControlsSection({ saved, save }) {
           <td class="small faint">${also.length ? t('ctl.alsoKey', 'also {key}', { key: also.join(', ') }) : ''}</td></tr>${note(r.id)}`;
       })}
     </tbody></table>
+    <div class="row"><span class="small faint">${t('ctl.sneakHint', 'Circle Pad half tilt (3DS): hold it while walking and the Circle Pad tilts only part of the way – to sneak in Omega Ruby / Alpha Sapphire or walk slowly in other games.')}</span></div>
     <div class="row"><span class="small faint">${t('ctl.touch', 'Touch screen (DS): mouse click.')} ${t('ctl.resetBar', 'Reset, pause and the save states are always in the bar under the game too – also without a key.')}</span></div>
   </section>`;
 }
@@ -408,6 +409,7 @@ function PadSection({ saved, save, nav, saveNav }) {
     </tbody></table>
     <ul class="small muted pad-hints">
       <li>${t('pad.stick', 'Left stick: moves like the D-pad.')}</li>
+      <li>${t('pad.sneak', 'Circle Pad half tilt (3DS): a stick doesn’t need it – just tilt it a little. With a button for it, the D-pad sneaks too while you hold that button.')}</li>
       <li>${t('pad.home', 'The Home button always pauses – also when no other button does.')}</li>
     </ul>
   </section>`;

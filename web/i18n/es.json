@@ -2814,5 +2814,9 @@
   "cheat.doneRepel": "+{n} Máximo Repelente en tu mochila|+{n} Máximos Repelentes en tu mochila",
   "cheat.failedRepel": "No se añadieron Máximos Repelentes",
   "cheat.maxRepelCap": "Ya llevas tantos Máximos Repelentes como permite el juego.",
-  "cheat.maxRepels": "{n} Máximo Repelente|{n} Máximos Repelentes"
+  "cheat.maxRepels": "{n} Máximo Repelente|{n} Máximos Repelentes",
+  "ctl.sneak": "Botón deslizante: media inclinación (andar con sigilo)",
+  "ctl.sneakHint": "Botón deslizante a media inclinación (3DS): mantén la tecla al caminar y el botón deslizante solo se inclina en parte, para andar con sigilo en Rubí Omega / Zafiro Alfa o caminar despacio en otros juegos.",
+  "keys.sneak": "Botón deslizante a media inclinación: mantén para andar con sigilo (3DS)",
+  "pad.sneak": "Botón deslizante a media inclinación (3DS): con un stick no hace falta, inclínalo solo un poco. Con un botón para ello, la cruceta también anda con sigilo mientras lo mantienes."
 }

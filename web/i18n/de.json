@@ -2814,5 +2814,9 @@
   "cheat.doneRepel": "+{n} Top-Schutz im Beutel|+{n} Top-Schutz im Beutel",
   "cheat.failedRepel": "Kein Top-Schutz hinzugefügt",
   "cheat.maxRepelCap": "Du trägst schon so viel Top-Schutz, wie das Spiel erlaubt.",
-  "cheat.maxRepels": "{n} Top-Schutz|{n} Top-Schutz"
+  "cheat.maxRepels": "{n} Top-Schutz|{n} Top-Schutz",
+  "ctl.sneak": "Schiebepad: halb neigen (schleichen)",
+  "ctl.sneakHint": "Schiebepad halb neigen (3DS): halte die Taste beim Laufen, dann neigt sich das Schiebepad nur ein Stück – zum Schleichen in Omega Rubin / Alpha Saphir oder für langsames Gehen in anderen Spielen.",
+  "keys.sneak": "Schiebepad halb neigen – halten zum Schleichen (3DS)",
+  "pad.sneak": "Schiebepad halb neigen (3DS): mit einem Stick nicht nötig – neige ihn einfach nur leicht. Mit einer Taste dafür schleicht auch das Steuerkreuz, solange du sie hältst."
 }

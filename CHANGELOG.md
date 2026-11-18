@@ -10,6 +10,13 @@
   Candies, it asks first, works only outside of battles once live tracking has found your team, only when the run's
   rules allow cheats (in a SoulLink the host decides), and every use shows up in the log for everyone, for example
   “used a cheat: 10 Max Repels”. Using it also counts against the “Honest Work” trophy.
+- **3DS: sneak and walk slowly with the keyboard** (thanks to a player on Discord). In Omega Ruby and Alpha Sapphire you
+  sneak up on hidden Pokémon by tilting the Circle Pad only a little – but a key always tilts it all the way, so there
+  was no way to sneak without a controller. Now there is “Circle Pad: half tilt” in Settings › Controls: hold it while
+  you walk and the Circle Pad goes only part of the way – slow enough to sneak, and to walk slowly in other 3DS games
+  too. It's on C (on L with the WASD keys), can be changed like any other key and is listed in Help › Controls &
+  shortcuts. On a controller just tilt the stick a little – or give the half tilt a controller button in
+  Settings › Controller, then the D-pad sneaks as well.
 
 ## 2.8.2
 

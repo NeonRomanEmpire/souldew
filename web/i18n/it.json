@@ -2814,5 +2814,9 @@
   "cheat.doneRepel": "+{n} Repellente Max nella borsa|+{n} Repellenti Max nella borsa",
   "cheat.failedRepel": "Nessun Repellente Max aggiunto",
   "cheat.maxRepelCap": "Hai già tanti Repellenti Max quanti ne permette il gioco.",
-  "cheat.maxRepels": "{n} Repellente Max|{n} Repellenti Max"
+  "cheat.maxRepels": "{n} Repellente Max|{n} Repellenti Max",
+  "ctl.sneak": "Pad scorrevole: inclinazione a metà (muoversi furtivamente)",
+  "ctl.sneakHint": "Pad scorrevole a metà (3DS): tieni premuto il tasto mentre cammini e il pad scorrevole si inclina solo in parte – per muoverti furtivamente in Rubino Omega / Zaffiro Alpha o camminare piano in altri giochi.",
+  "keys.sneak": "Pad scorrevole a metà – tieni premuto per muoverti furtivamente (3DS)",
+  "pad.sneak": "Pad scorrevole a metà (3DS): con una levetta non serve – inclinala solo un poco. Con un pulsante dedicato, anche la croce direzionale si muove furtivamente finché lo tieni premuto."
 }

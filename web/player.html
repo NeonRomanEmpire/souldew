@@ -1410,7 +1410,8 @@
   let padWanted = null; // config.pads.device – Settings › Controller › "Controller to use"
   let padActions = {}; // controller shortcuts: standard button index → action (lib/controls.mjs padActions, set with the controls)
   function startPads(c) {
-    const idx = Object.fromEntries(c.BUTTONS.map((b) => [b.id, b.ejs]));
+    const joypad = c.BUTTONS.filter(c.isJoypad); // (not the 3DS half tilt)
+    const idx = Object.fromEntries(joypad.map((b) => [b.id, b.ejs]));
     const stick = { up: false, down: false, left: false, right: false };
     const held = {};
     let chosen = null; // `${id}_${index}` of the device that plays (EmulatorJS' name for it)
@@ -1420,7 +1421,7 @@
       try { GM()?.simulateInput(0, idx[dir], on ? 1 : 0); } catch { /* core not ready */ }
     };
     release = () => {
-      for (const b of c.BUTTONS) try { GM()?.simulateInput(0, b.ejs, 0); } catch { /* core not ready */ }
+      for (const b of joypad) try { GM()?.simulateInput(0, b.ejs, 0); } catch { /* core not ready */ }
       for (const d of Object.keys(stick)) stick[d] = false;
     };
     const choose = () => {

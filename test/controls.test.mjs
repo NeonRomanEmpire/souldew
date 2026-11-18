@@ -59,8 +59,8 @@ test('QWERTZ swaps Y and Z, AZERTY moves A/Q/W/Z', () => {
   assert.equal(keyFor('Space', QWERTY).keyCode, 32);
   // non-Latin layouts (e.g. Russian): browsers report the US letter
   assert.equal(keyFor('KeyF', { real: true, get: () => 'а' }).keyCode, 70);
-  assert.equal(labels(presetMap('arrows', QWERTZ), QWERTZ), '↑ ↓ ← → Y X A S Q E Enter V');
-  assert.equal(labels(presetMap('arrows', AZERTY), AZERTY), '↑ ↓ ← → W X Q S A E Enter V');
+  assert.equal(labels(presetMap('arrows', QWERTZ), QWERTZ), '↑ ↓ ← → Y X A S Q E Enter V C');
+  assert.equal(labels(presetMap('arrows', AZERTY), AZERTY), '↑ ↓ ← → W X Q S A E Enter V C');
 });
 
 test('the fallback layout follows the UI language', () => {
